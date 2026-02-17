@@ -1,0 +1,40 @@
+---
+title: "ggro-poster-dataviz"
+format: html
+editor: visual
+author: "Jordan Sibley"
+date: date-formated
+editor_options: 
+  chunk_output_type: console
+---
+
+## Set Up 
+
+```{r}
+# Libraries 
+library(tidyverse)
+library(here)
+```
+
+```{r}
+# Data 
+
+# ----- Hawkwatch data sets ----
+# Total dataset
+hw_full_raw <- read_csv(here("data", "hawk-watch", "Hawkwatch_Final.csv"))
+
+# 2025 dataset 
+hw_2025_raw <- read_csv(here("data", "hawk-watch", "Hawkwatch_2025_0.csv"))
+
+```
+
+
+## Exploration 
+```{r}
+# View datasets 
+glimpse(hw_full_raw)
+```
+
+
+
+
