@@ -13,10 +13,15 @@ editor_options:
 ```{r}
 # Libraries 
 library(tidyverse)
+library(sysfonts)
 library(here)
 library(janitor)
 library(lubridate)
 library(statebins) # for heatmap
+library(treemap) # for treemap plot 
+
+# Font 
+font_add_google(name = "Lato", family = "Lato")
 ```
 
 ```{r}
@@ -165,7 +170,7 @@ hw_heatmap_2019 <- hw_heatmap |>
 
 ### Plot 
 
-For 2019 only
+#### For 2019 only
 ```{r}
 # Find the positions of the month labels
 tab <- hw_heatmap_2019|> 
@@ -207,21 +212,32 @@ ggplot(hw_heatmap_2019, aes(n_week, weekday_label)) +
   )
 ```
 
-try and facet wrap plot from to 2019 to 2024
+#### Facet wrap plot from to 2019 to 2024
 
 ```{r}
 # Filter to 2019-2025 and Sharp-shinned Hawk for test 
 hw_heatmap_2019_2024 <- hw_heatmap |> 
   filter(SurveyYear >= 2019 & SurveyYear <= 2024,
-         CommonName == "Sharp-shinned Hawk")
+         CommonName == "Sharp-shinned Hawk")  #"American Kestrel"  "Sharp-shinned Hawk"
 ```
 
 ```{r}
+# Find the positions of the month labels (Not the best way to fix this, i just want to see )
+# tab <- hw_heatmap_2019_2024 |> 
+#   filter(SurveyYear == 2023) |> 
+#   summarise(nmin = min(n_week), .by = "month")
 
-# Per-facet month tick positions
+
+min_year <- hw_heatmap_2019_2024 |>
+  arrange(n_week, SurveyYear) |>
+  slice(1) |>
+  pull(SurveyYear)
+
 tab <- hw_heatmap_2019_2024 |>
-  summarise(nmin = min(n_week), .by = c(SurveyYear, month)) |>
-  arrange(SurveyYear, month)
+  filter(SurveyYear == min_year) |>
+  summarise(nmin = min(n_week), .by = month) |>
+  arrange(month)
+
 
 
 # heat map
@@ -265,15 +281,104 @@ plot <- ggplot(hw_heatmap_2019_2024, aes(n_week, weekday_label)) +
 plot
 
 # Add month labels per facet as text at the top
-#plot +
-#  geom_text(
-#    data = tab,
-#    aes(x = nmin, y = levels(hw_heatmap_2019_2024$weekday_label)[1],  # top row #label
-#        label = as.character(month)),
-#    inherit.aes = FALSE,
-#    vjust = -0.6,        # push above tiles
-#    size  = 3.2
-#  )
+# plot +
+#   geom_text(
+#     data = tab,
+#     aes(x = nmin, y = levels(hw_heatmap_2019_2024$weekday_label)[1],  # top row #label
+#         label = as.character(month)),
+#     inherit.aes = FALSE,
+#     vjust = -0.6,        # push above tiles
+#     size  = 3.2
+#   )
 
 ```
+
+
+## Hawkwatch species distribution 
+
+### Tree Map to show species diversity from 2020 to 2025 
+
+```{r}
+# Clean daily counts 
+hw_treemap <- hw_full_dailycount |> 
+  # remove Monarch Butterfly  
+  filter(!CommonName ==  "Monarch Butterfly") |> 
+  # filter to years 2020 through 2025 
+  filter(SurveyYear >= 2020) |> 
+  # group by species 
+  group_by(CommonName) |> 
+  summarise(Total = sum(DailyCount)) |> 
+  # order by number 
+  arrange(desc(Total)) |> 
+  slice_head(n = 25)
+```
+
+
+```{r}
+treemap(
+  hw_treemap,
+  index = "CommonName",
+  vSize = "Total",
+  type = "index",
+  palette = "Set2",
+  
+  overlap.labels = 0.5, 
+  inflate.labels = T, # makes text proportional to rect size
+  
+  title = "Bird Species Sited During HawkWatch from 2020 - 2025",
+  fontsize.title = 12,
+  fontface.labels = 1 # non -bold
+  
+)
+
+```
+
+
+### Lollipop chart to show counts from 2020 to 2025 
+```{r}
+# Clean data 
+hw_lolli <- hw_full_dailycount |> 
+  # remove Monarch Butterfly  
+  filter(!CommonName ==  "Monarch Butterfly") |> 
+  # filter to years 2020 through 2025 
+  filter(SurveyYear >= 2020) |> 
+  
+  # Lump species outside top 25 (by weighted counts) to "Other Birds"
+  mutate(CommonName = fct_lump_n(CommonName, n = 25,
+                                 w = DailyCount,
+                                 other_level = "Other Birds")) |>
+  # Group by common name 
+  group_by(CommonName) |>
+  summarise(Total = sum(DailyCount, na.rm = TRUE), .groups = "drop") |> 
+  arrange((CommonName != "Other Birds"),  # keep Other last
+          (Total), CommonName) |> 
+  # factor order by name to maintain descending order of counts 
+  mutate(CommonName = factor(CommonName, levels=CommonName))
+```
+
+```{r}
+# Initalize ggplot 
+ggplot(hw_lolli,  aes(x = CommonName, y = Total)) +
+  # geoms for lollipop chart 
+  geom_segment(aes(xend = CommonName, yend = 0), linewidth = 1.3,  color="skyblue") +
+  geom_point(size = 3, color="blue") + 
+  # flip x y coords 
+  coord_flip(clip = "off") + 
+  # axis labels 
+  labs(y = "Total Birds Counted",
+       title = "Which Bird Species are Our Volunteers Seeing?",
+       subtitle = "Hawk Watch Counts from 2020 - 2025") + 
+  scale_y_continuous(breaks = seq(0, max(hw_lolli$Total), by = 20000), 
+                     labels = scales::comma) +
+  # theme elements 
+  theme_minimal() + 
+  theme(
+    # remove y axis title & legend 
+    axis.title.y = element_blank(),
+    legend.position = "none",
+    )
+
+  
+```
+
 
