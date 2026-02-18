@@ -11,9 +11,13 @@ editor_options:
 ## Set Up 
 
 ```{r}
+#| output: false
+#| quiet: true
+#| code-fold: true
+#| code-summary: "Show the code"
 # Libraries 
 library(tidyverse)
-library(sysfonts)
+library(showtext)
 library(here)
 library(janitor)
 library(lubridate)
@@ -22,9 +26,31 @@ library(treemap) # for treemap plot
 
 # Font 
 font_add_google(name = "Lato", family = "Lato")
+showtext_auto(enable = TRUE)
+
+# Set Lato as theme text for all plots 
+theme_set(
+  theme_minimal(base_family = "Lato") +          
+    theme(
+      text = element_text(family = "Lato"),       
+      plot.title = element_text(family = "Lato"),
+      plot.subtitle = element_text(family = "Lato"),
+      plot.caption = element_text(family = "Lato"),
+      axis.title = element_text(family = "Lato"),
+      axis.text  = element_text(family = "Lato"),
+      legend.title = element_text(family = "Lato"),
+      legend.text  = element_text(family = "Lato"),
+      strip.text = element_text(family = "Lato") 
+    )
+)
+
 ```
 
 ```{r}
+#| output: false
+#| quiet: true
+#| code-fold: true
+#| code-summary: "Show the code"
 # Data 
 
 # ----- Hawkwatch data sets ----
@@ -40,6 +66,8 @@ hw_2025_raw <- read_csv(here("data", "hawk-watch", "Hawkwatch_2025_0.csv"))
 ## Exploration and Cleaning 
 
 ```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
 # View datasets 
 glimpse(hw_full_raw)
 
@@ -68,6 +96,8 @@ qc_summary(hw_full_raw)
 
 
 ```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
 # Clean hawk watch data 
 hw_full_clean <- hw_full_raw |> 
   # clean column names 
@@ -89,6 +119,8 @@ hw_full_dailycount <- hw_full_clean |>
 This is code found [in this blog post](https://restateinsight.com/posts/general-posts/2024-12-github-contributions-plot/) which outlines how to make a  make a `geom_rtile` function.
 
 ```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
 `%||%` <- function(a, b) {
   if(is.null(a)) b else a
 }
@@ -147,6 +179,8 @@ geom_rtile <- function(mapping = NULL, data = NULL,
 
 
 ```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
 # Add date information
 hw_heatmap <- hw_full_dailycount |> 
   mutate(
@@ -172,6 +206,8 @@ hw_heatmap_2019 <- hw_heatmap |>
 
 #### For 2019 only
 ```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
 # Find the positions of the month labels
 tab <- hw_heatmap_2019|> 
   summarise(nmin = min(n_week), .by = "month")
@@ -215,6 +251,8 @@ ggplot(hw_heatmap_2019, aes(n_week, weekday_label)) +
 #### Facet wrap plot from to 2019 to 2024
 
 ```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
 # Filter to 2019-2025 and Sharp-shinned Hawk for test 
 hw_heatmap_2019_2024 <- hw_heatmap |> 
   filter(SurveyYear >= 2019 & SurveyYear <= 2024,
@@ -222,6 +260,8 @@ hw_heatmap_2019_2024 <- hw_heatmap |>
 ```
 
 ```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
 # Find the positions of the month labels (Not the best way to fix this, i just want to see )
 # tab <- hw_heatmap_2019_2024 |> 
 #   filter(SurveyYear == 2023) |> 
@@ -299,6 +339,8 @@ plot
 ### Tree Map to show species diversity from 2020 to 2025 
 
 ```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
 # Clean daily counts 
 hw_treemap <- hw_full_dailycount |> 
   # remove Monarch Butterfly  
@@ -315,6 +357,8 @@ hw_treemap <- hw_full_dailycount |>
 
 
 ```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
 treemap(
   hw_treemap,
   index = "CommonName",
@@ -327,8 +371,7 @@ treemap(
   
   title = "Bird Species Sited During HawkWatch from 2020 - 2025",
   fontsize.title = 12,
-  fontface.labels = 1 # non -bold
-  
+  fontface.labels = 1, # non -bold
 )
 
 ```
@@ -336,6 +379,8 @@ treemap(
 
 ### Lollipop chart to show counts from 2020 to 2025 
 ```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
 # Clean data 
 hw_lolli <- hw_full_dailycount |> 
   # remove Monarch Butterfly  
@@ -357,6 +402,8 @@ hw_lolli <- hw_full_dailycount |>
 ```
 
 ```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
 # Initalize ggplot 
 ggplot(hw_lolli,  aes(x = CommonName, y = Total)) +
   # geoms for lollipop chart 
@@ -376,6 +423,8 @@ ggplot(hw_lolli,  aes(x = CommonName, y = Total)) +
     # remove y axis title & legend 
     axis.title.y = element_blank(),
     legend.position = "none",
+    plot.title = element_text(size = 15),
+    plot.subtitle = element_text(size = 12, family = "Lato")
     )
 
   
