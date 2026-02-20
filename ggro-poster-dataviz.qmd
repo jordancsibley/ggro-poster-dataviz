@@ -17,6 +17,7 @@ editor_options:
 #| code-summary: "Show the code"
 # Libraries 
 library(tidyverse)
+library(readxl)
 library(showtext)
 library(here)
 library(janitor)
@@ -53,12 +54,15 @@ theme_set(
 #| code-summary: "Show the code"
 # Data 
 
-# ----- Hawkwatch data sets ----
+# ---- Hawkwatch data sets ----
 # Total dataset
 hw_full_raw <- read_csv(here("data", "hawk-watch", "Hawkwatch_Final.csv"))
 
 # 2025 dataset 
 hw_2025_raw <- read_csv(here("data", "hawk-watch", "Hawkwatch_2025_0.csv"))
+
+# ---- Banding data ----
+banding_raw <- read_excel(here("data", "banding", "BandingFlat01.14.26.xlsx"), sheet = 1)
 
 ```
 
