@@ -24,26 +24,27 @@ library(janitor)
 library(lubridate)
 library(statebins) # for heatmap
 library(treemap) # for treemap plot 
+library(scales)
 
 # Font 
 font_add_google(name = "Lato", family = "Lato")
 showtext_auto(enable = TRUE)
 
 # Set Lato as theme text for all plots 
-theme_set(
-  theme_minimal(base_family = "Lato") +          
-    theme(
-      text = element_text(family = "Lato"),       
-      plot.title = element_text(family = "Lato"),
-      plot.subtitle = element_text(family = "Lato"),
-      plot.caption = element_text(family = "Lato"),
-      axis.title = element_text(family = "Lato"),
-      axis.text  = element_text(family = "Lato"),
-      legend.title = element_text(family = "Lato"),
-      legend.text  = element_text(family = "Lato"),
-      strip.text = element_text(family = "Lato") 
-    )
-)
+# theme_set(
+#   theme_minimal(base_family = "Lato") +          
+#     theme(
+#       text = element_text(family = "Lato"),       
+#       plot.title = element_text(family = "Lato"),
+#       plot.subtitle = element_text(family = "Lato"),
+#       plot.caption = element_text(family = "Lato"),
+#       axis.title = element_text(family = "Lato"),
+#       axis.text  = element_text(family = "Lato"),
+#       legend.title = element_text(family = "Lato"),
+#       legend.text  = element_text(family = "Lato"),
+#       strip.text = element_text(family = "Lato") 
+#     )
+# )
 
 ```
 
@@ -69,10 +70,12 @@ banding_raw <- read_excel(here("data", "banding", "BandingFlat01.14.26.xlsx"), s
 
 ## Exploration and Cleaning 
 
+### Hawk Watch Data 
+
 ```{r}
 #| code-fold: true
 #| code-summary: "Show the code"
-# View datasets 
+# View dataset
 glimpse(hw_full_raw)
 
 # Write function to print out unique values and summary stats 
@@ -114,6 +117,75 @@ hw_full_clean <- hw_full_raw |>
 hw_full_dailycount <- hw_full_clean |> 
   group_by(ProtocolName, SiteName, SurveyYear, SamplingDate, CommonName) |> 
   summarise(DailyCount = sum(BirdCount, na.rm = TRUE), .groups = "drop")
+```
+
+
+### Banding data
+```{r}
+# View dataset 
+glimpse(banding_raw)
+
+# View data elements 
+qc_summary(banding_raw)
+```
+
+```{r}
+# Clean banding data 
+banding_clean <- banding_raw |> 
+  # clean column names 
+  clean_names(case = "upper_camel") |> 
+  # select relevant columns 
+  select(c(ProjectName, ProtocolName, SamplingDate, Site, BandingCode, BandingStatus, Species, Age, Sex, Morph)) |> 
+  # rename Species to SpeciesCode
+  rename("SpeciesCode" = "Species") |> 
+  # create new column CommonName
+  mutate(CommonName = case_when(SpeciesCode == "COHA" ~ "Cooper's Hawk",
+                                SpeciesCode == "RTHA" ~ "Red-Tailed Hawk",
+                                SpeciesCode == "AMKE" ~ "American Kestrel",
+                                SpeciesCode == "SSHA" ~ "Sharp-shinned Hawk",
+                                SpeciesCode == "NOHA" ~ "Northern Harrier",
+                                SpeciesCode == "NOGO" ~ "Northern Goshawk",
+                                SpeciesCode == "GHOW" ~ "Great Horned Owl",
+                                SpeciesCode == "BWHA" ~ "Broad-winged Hawk",
+                                SpeciesCode == "RSHA" ~ "Red-shouldered Hawk",
+                                SpeciesCode == "PEFA" ~ "Peregrine Falcon",
+                                SpeciesCode == "GOEA" ~ "Golden Eagle",
+                                SpeciesCode == "FEHA" ~ "Ferruginous Hawk",
+                                SpeciesCode == "RLHA" ~ "Rough-legged Hawk",
+                                SpeciesCode == "PRFA" ~ "Prairie Falcon",
+                                SpeciesCode == "MERL" ~ "Merlin",
+                                SpeciesCode == "SWHA" ~ "Swainson’s Hawk",
+                                SpeciesCode == "LEOW" ~ "Long-eared Owl",
+                                SpeciesCode == "EUKE" ~ "Eurasian Kestrel",
+                                SpeciesCode == "TUVU" ~ "Turkey Vulture",
+                                SpeciesCode == "UNID_ACCP" ~ "Unidentified Accipiter",
+                                SpeciesCode == "UNID_BUTEO" ~ "Unidentified Buteo",
+                                SpeciesCode == "UNID_RAP" ~ "Unidentified Raptor",
+                                SpeciesCode == "UNID_FALC" ~ "Unidentified Falcon",
+                                SpeciesCode == "OSPR" ~ "Ospery",
+                                SpeciesCode == "UNID_EAGLE" ~ "Unidentified Eagle",
+                                TRUE ~ NA_character_
+                                ))
+
+```
+
+
+## Color palette for plots 
+```{r}
+parks_pal <- c("Blue Green" = "#4d9cbc",
+               "Cerulean" = "#326e85",
+               "Honey Bronze" = "#e5b03f",
+               "Goldenrod" = "#d79d1d",
+               "Rosy Copper" = "#dd5e4c",
+               "Burnt Tangerine" = "#ce3b27",
+               "Ocean Mist" = "#6bbaa9",
+               "Seagrass" = "#489987",
+               "Lime Moss" = "#adb449",
+               "Palm Leaf" = "#8b913b")
+
+monochromeR::view_palette(parks_pal)
+
+
 ```
 
 
@@ -242,7 +314,9 @@ ggplot(hw_heatmap_2019, aes(n_week, weekday_label)) +
     na.value = "gray90") +
   
   # Removes x and y labels
-  labs(x = NULL, y = NULL) +
+  labs(x = NULL, 
+       y = NULL,
+       title = "Sharp-shinned Hawk Counts in 2019") +
   # Removes the color legend
   guides(fill = "none") +
   theme_minimal() +
@@ -338,7 +412,7 @@ plot
 ```
 
 
-## Hawkwatch species distribution 
+## Hawkwatch species counts and diversity
 
 ### Tree Map to show species diversity from 2020 to 2025 
 
@@ -357,6 +431,13 @@ hw_treemap <- hw_full_dailycount |>
   # order by number 
   arrange(desc(Total)) |> 
   slice_head(n = 25)
+
+# Build the label column
+# hw_treemap <- hw_treemap |> 
+#   mutate(
+#     label = paste0(CommonName, "\n", scales::comma(Total))  # line-break for readability
+#   )
+
 ```
 
 
@@ -368,13 +449,17 @@ treemap(
   index = "CommonName",
   vSize = "Total",
   type = "index",
-  palette = "Set2",
+  
+  palette = parks_pal,
+  fontcolor.labels = "white",
   
   overlap.labels = 0.5, 
   inflate.labels = T, # makes text proportional to rect size
   
   title = "Bird Species Sited During HawkWatch from 2020 - 2025",
-  fontsize.title = 12,
+  fontsize.title = 20,
+  fontfamily.title = "Lato",
+  fontfamily.labels = "Lato",
   fontface.labels = 1, # non -bold
 )
 
@@ -411,8 +496,8 @@ hw_lolli <- hw_full_dailycount |>
 # Initalize ggplot 
 ggplot(hw_lolli,  aes(x = CommonName, y = Total)) +
   # geoms for lollipop chart 
-  geom_segment(aes(xend = CommonName, yend = 0), linewidth = 1.3,  color="skyblue") +
-  geom_point(size = 3, color="blue") + 
+  geom_segment(aes(xend = CommonName, yend = 0), linewidth = 1.3,  color= parks_pal["Blue Green"]) +
+  geom_point(size = 3, color=parks_pal["Cerulean"]) + 
   # flip x y coords 
   coord_flip(clip = "off") + 
   # axis labels 
@@ -427,11 +512,14 @@ ggplot(hw_lolli,  aes(x = CommonName, y = Total)) +
     # remove y axis title & legend 
     axis.title.y = element_blank(),
     legend.position = "none",
-    plot.title = element_text(size = 15),
-    plot.subtitle = element_text(size = 12, family = "Lato")
+    plot.title = element_text(size = 15, family = "Lato"),
+    plot.subtitle = element_text(size = 12, family = "Lato"),
+    axis.title = element_text(family = "Lato"),
+    axis.text = element_text(family = "Lato")
     )
 
   
 ```
 
 
+## Banding Data Plots 
