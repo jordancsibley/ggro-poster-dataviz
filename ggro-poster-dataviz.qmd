@@ -24,6 +24,7 @@ library(janitor)
 library(lubridate)
 library(statebins) # for heatmap
 library(treemap) # for treemap plot 
+library(treemapify) # for better treemap?
 library(scales)
 
 # Font 
@@ -122,6 +123,11 @@ hw_full_dailycount <- hw_full_clean |>
 
 ### Banding data
 ```{r}
+#| output: false
+#| quiet: true
+#| code-fold: true
+#| code-summary: "Show the code"
+
 # View dataset 
 glimpse(banding_raw)
 
@@ -130,6 +136,9 @@ qc_summary(banding_raw)
 ```
 
 ```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+
 # Clean banding data 
 banding_clean <- banding_raw |> 
   # clean column names 
@@ -190,7 +199,156 @@ monochromeR::view_palette(parks_pal)
 
 
 
-## Heatmap 
+## Hawkwatch species counts and diversity
+
+### Tree Map to show species diversity from 2020 to 2025 
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+# Clean daily counts to prepare for treemap plot
+hw_treemap <- hw_full_dailycount |> 
+  # remove Monarch Butterfly  
+  filter(!CommonName ==  "Monarch Butterfly") |> 
+  # filter to years 2020 through 2025 
+  filter(SurveyYear >= 2020) |> 
+  # group by species 
+  group_by(CommonName) |> 
+  summarise(Total = sum(DailyCount)) |> 
+  # order by number 
+  arrange(desc(Total)) |> 
+  slice_head(n = 25)
+```
+
+
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+# Count how many species (levels) you have
+n_species <- n_distinct(hw_treemap$CommonName)
+
+# Repeat your palette to the needed length
+parks_pal_expanded <- rep(unname(parks_pal), length.out = n_species)
+
+# Get bird stats for subtitle 
+total_birds_20_25 <- comma(sum(hw_treemap$Total))
+total_bird_species <- length(unique(hw_full_dailycount$CommonName))
+
+
+
+# Build tree map using treemapify 
+ggplot(hw_treemap, aes(area = Total, fill = CommonName, label = CommonName)) +
+  geom_treemap() +
+  geom_treemap_text(colour = "white",
+                    place = "centre",
+                    size = 15, 
+                    grow = TRUE,
+                    family = "Lato") +
+  # title and subtitle text 
+  labs(title = "Which birds are seen the most during Hawk Watch?",
+       subtitle = paste0("From 2020 to 2025 a total of ", total_birds_20_25, " birds were identified by volunteers spanning ", total_bird_species, " different species. The most common \nbird sited was the Band-tailed Pigeon, followed by Turkey Vultures and Red Tailed Hawk\n")) +
+  
+  # fill treemap with custom color palette called 'parks_pal'
+  scale_fill_manual(values = unname(parks_pal_expanded)) +
+  
+  # theme elements
+  theme(
+    # remove legend
+    legend.position = "none",    
+    # title to Lato & center
+    plot.title = element_text(family = "Lato", face = "bold", 
+                              size = 25, hjust = 0.5),
+    # subtitle to Lato
+    plot.subtitle = element_text(
+      family = "Lato", size = 18, margin = margin(t = 6))
+
+    
+    )
+```
+
+### Lollipop chart to show counts from 2020 to 2025 
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+# Clean data 
+hw_lolli <- hw_full_dailycount |> 
+  # remove Monarch Butterfly  
+  filter(!CommonName ==  "Monarch Butterfly") |> 
+  # filter to years 2020 through 2025 
+  filter(SurveyYear >= 2020) |> 
+  
+  # Lump species outside top 25 (by weighted counts) to "Other Birds"
+  mutate(CommonName = fct_lump_n(CommonName, n = 25,
+                                 w = DailyCount,
+                                 other_level = "Other Birds")) |>
+  # Group by common name 
+  group_by(CommonName) |>
+  summarise(Total = sum(DailyCount, na.rm = TRUE), .groups = "drop") |> 
+  arrange((CommonName != "Other Birds"),  # keep Other last
+          (Total), CommonName) |> 
+  # factor order by name to maintain descending order of counts 
+  mutate(CommonName = factor(CommonName, levels=CommonName))
+```
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+# Initalize ggplot 
+ggplot(hw_lolli,  aes(x = CommonName, y = Total)) +
+  # geoms for lollipop chart 
+  geom_segment(aes(xend = CommonName, yend = 0), linewidth = 1.3,  color= parks_pal["Blue Green"]) +
+  geom_point(size = 3, color=parks_pal["Cerulean"]) + 
+  # flip x y coords 
+  coord_flip(clip = "off") + 
+  # axis labels 
+  labs(y = "Total Birds Counted",
+       title = "Which Bird Species are Our Volunteers Seeing?",
+       subtitle = "Hawk Watch Counts from 2020 - 2025") + 
+  scale_y_continuous(breaks = seq(0, max(hw_lolli$Total), by = 20000), 
+                     labels = scales::comma) +
+  # theme elements 
+  theme_minimal() + 
+  theme(
+    # remove y axis title & legend 
+    axis.title.y = element_blank(),
+    legend.position = "none",
+    plot.title = element_text(size = 15, family = "Lato"),
+    plot.subtitle = element_text(size = 12, family = "Lato"),
+    axis.title = element_text(family = "Lato"),
+    axis.text = element_text(family = "Lato")
+    )
+
+  
+```
+
+
+## Hawkwatch Arrivial of Species 
+
+### Density plots to compare arrivial of Sharp-shinned hawks
+
+This example looks at the density of sightings of Sharp-shinned hawks over time during Hawk Watch. I chose to compare it to the density of a common species Red-tailed hawk. Is there another species that would be comparable? 
+
+```{r}
+# Clean daily counts data to prepare for density plot 
+
+# determine year range of ssh 
+# break years up into n yearly bins 
+
+# Is
+
+
+
+```
+
+
+## Banding Data Plots 
+
+
+## Alternative types of plots [WORK IN PROGRESS]
+
+## Heatmap to show distribution of counts 
 
 This is code found [in this blog post](https://restateinsight.com/posts/general-posts/2024-12-github-contributions-plot/) which outlines how to make a  make a `geom_rtile` function.
 
@@ -410,116 +568,3 @@ plot
 #   )
 
 ```
-
-
-## Hawkwatch species counts and diversity
-
-### Tree Map to show species diversity from 2020 to 2025 
-
-```{r}
-#| code-fold: true
-#| code-summary: "Show the code"
-# Clean daily counts 
-hw_treemap <- hw_full_dailycount |> 
-  # remove Monarch Butterfly  
-  filter(!CommonName ==  "Monarch Butterfly") |> 
-  # filter to years 2020 through 2025 
-  filter(SurveyYear >= 2020) |> 
-  # group by species 
-  group_by(CommonName) |> 
-  summarise(Total = sum(DailyCount)) |> 
-  # order by number 
-  arrange(desc(Total)) |> 
-  slice_head(n = 25)
-
-# Build the label column
-# hw_treemap <- hw_treemap |> 
-#   mutate(
-#     label = paste0(CommonName, "\n", scales::comma(Total))  # line-break for readability
-#   )
-
-```
-
-
-```{r}
-#| code-fold: true
-#| code-summary: "Show the code"
-treemap(
-  hw_treemap,
-  index = "CommonName",
-  vSize = "Total",
-  type = "index",
-  
-  palette = parks_pal,
-  fontcolor.labels = "white",
-  
-  overlap.labels = 0.5, 
-  inflate.labels = T, # makes text proportional to rect size
-  
-  title = "Bird Species Sited During HawkWatch from 2020 - 2025",
-  fontsize.title = 20,
-  fontfamily.title = "Lato",
-  fontfamily.labels = "Lato",
-  fontface.labels = 1, # non -bold
-)
-
-```
-
-
-### Lollipop chart to show counts from 2020 to 2025 
-```{r}
-#| code-fold: true
-#| code-summary: "Show the code"
-# Clean data 
-hw_lolli <- hw_full_dailycount |> 
-  # remove Monarch Butterfly  
-  filter(!CommonName ==  "Monarch Butterfly") |> 
-  # filter to years 2020 through 2025 
-  filter(SurveyYear >= 2020) |> 
-  
-  # Lump species outside top 25 (by weighted counts) to "Other Birds"
-  mutate(CommonName = fct_lump_n(CommonName, n = 25,
-                                 w = DailyCount,
-                                 other_level = "Other Birds")) |>
-  # Group by common name 
-  group_by(CommonName) |>
-  summarise(Total = sum(DailyCount, na.rm = TRUE), .groups = "drop") |> 
-  arrange((CommonName != "Other Birds"),  # keep Other last
-          (Total), CommonName) |> 
-  # factor order by name to maintain descending order of counts 
-  mutate(CommonName = factor(CommonName, levels=CommonName))
-```
-
-```{r}
-#| code-fold: true
-#| code-summary: "Show the code"
-# Initalize ggplot 
-ggplot(hw_lolli,  aes(x = CommonName, y = Total)) +
-  # geoms for lollipop chart 
-  geom_segment(aes(xend = CommonName, yend = 0), linewidth = 1.3,  color= parks_pal["Blue Green"]) +
-  geom_point(size = 3, color=parks_pal["Cerulean"]) + 
-  # flip x y coords 
-  coord_flip(clip = "off") + 
-  # axis labels 
-  labs(y = "Total Birds Counted",
-       title = "Which Bird Species are Our Volunteers Seeing?",
-       subtitle = "Hawk Watch Counts from 2020 - 2025") + 
-  scale_y_continuous(breaks = seq(0, max(hw_lolli$Total), by = 20000), 
-                     labels = scales::comma) +
-  # theme elements 
-  theme_minimal() + 
-  theme(
-    # remove y axis title & legend 
-    axis.title.y = element_blank(),
-    legend.position = "none",
-    plot.title = element_text(size = 15, family = "Lato"),
-    plot.subtitle = element_text(size = 12, family = "Lato"),
-    axis.title = element_text(family = "Lato"),
-    axis.text = element_text(family = "Lato")
-    )
-
-  
-```
-
-
-## Banding Data Plots 
