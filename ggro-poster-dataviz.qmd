@@ -3,7 +3,7 @@ title: "ggro-poster-dataviz"
 format: html
 editor: visual
 author: "Jordan Sibley"
-date: date-formated
+date: last-modified
 editor_options: 
   chunk_output_type: console
 ---
@@ -24,28 +24,13 @@ library(janitor)
 library(lubridate)
 library(statebins) # for heatmap
 library(treemapify) # for treemap
-library(ggridges)
-library(scales)
+library(ggridges) # ridgeline density 
+library(waffle) # waffle plot 
+library(scales) # commas 
 
 # Font 
 font_add_google(name = "Lato", family = "Lato")
 showtext_auto(enable = TRUE)
-
-# Set Lato as theme text for all plots 
-# theme_set(
-#   theme_minimal(base_family = "Lato") +          
-#     theme(
-#       text = element_text(family = "Lato"),       
-#       plot.title = element_text(family = "Lato"),
-#       plot.subtitle = element_text(family = "Lato"),
-#       plot.caption = element_text(family = "Lato"),
-#       axis.title = element_text(family = "Lato"),
-#       axis.text  = element_text(family = "Lato"),
-#       legend.title = element_text(family = "Lato"),
-#       legend.text  = element_text(family = "Lato"),
-#       strip.text = element_text(family = "Lato") 
-#     )
-# )
 
 ```
 
@@ -174,7 +159,16 @@ banding_clean <- banding_raw |>
                                 SpeciesCode == "OSPR" ~ "Ospery",
                                 SpeciesCode == "UNID_EAGLE" ~ "Unidentified Eagle",
                                 TRUE ~ NA_character_
-                                ))
+                                )) |> 
+  # rename values in Sex column 
+  mutate(Sex = case_when(Sex == "F" ~ "Female", 
+                         Sex == "M" ~ "Male", 
+                         Sex == "U" ~ "Unknown", 
+                         is.na(Sex) ~ "Unknown",
+                         TRUE ~ "Unknown")) |> 
+  # remove rows where species code = NA 
+  filter(!is.na(SpeciesCode))
+
 
 ```
 
@@ -201,72 +195,6 @@ monochromeR::view_palette(parks_pal)
 
 ## Hawkwatch species counts and diversity
 
-### Tree Map to show species diversity from 2020 to 2025 
-
-```{r}
-#| code-fold: true
-#| code-summary: "Show the code"
-
-# Clean daily counts to prepare for treemap plot
-hw_treemap <- hw_full_dailycount |> 
-  # remove Monarch Butterfly  
-  filter(!CommonName ==  "Monarch Butterfly") |> 
-  # filter to years 2020 through 2025 
-  filter(SurveyYear >= 2020) |> 
-  # group by species 
-  group_by(CommonName) |> 
-  summarise(Total = sum(DailyCount)) |> 
-  # order by number 
-  arrange(desc(Total)) |> 
-  slice_head(n = 25)
-```
-
-
-
-```{r}
-#| code-fold: true
-#| code-summary: "Show the code"
-# Count how many species (levels) you have
-n_species <- n_distinct(hw_treemap$CommonName)
-
-# Repeat your palette to the needed length
-parks_pal_expanded <- rep(unname(parks_pal), length.out = n_species)
-
-# Get bird stats for subtitle 
-total_birds_20_25 <- comma(sum(hw_treemap$Total))
-total_bird_species <- length(unique(hw_full_dailycount$CommonName))
-
-
-
-# Build tree map using treemapify 
-ggplot(hw_treemap, aes(area = Total, fill = CommonName, label = CommonName)) +
-  geom_treemap() +
-  geom_treemap_text(colour = "white",
-                    place = "centre",
-                    size = 15, 
-                    grow = TRUE,
-                    family = "Lato") +
-  # title and subtitle text 
-  labs(title = "Which birds are seen the most during Hawk Watch?",
-       subtitle = paste0("From 2020 to 2025 a total of ", total_birds_20_25, " birds were identified by volunteers spanning ", total_bird_species, " different species. The most common \nbird sited was the Band-tailed Pigeon, followed by Turkey Vultures and Red Tailed Hawk\n")) +
-  
-  # fill treemap with custom color palette called 'parks_pal'
-  scale_fill_manual(values = unname(parks_pal_expanded)) +
-  
-  # theme elements
-  theme(
-    # remove legend
-    legend.position = "none",    
-    # title to Lato & center
-    plot.title = element_text(family = "Lato", face = "bold", 
-                              size = 25, hjust = 0.5),
-    # subtitle to Lato
-    plot.subtitle = element_text(
-      family = "Lato", size = 18, margin = margin(t = 6))
-
-    
-    )
-```
 
 ### Lollipop chart to show counts from 2020 to 2025 
 ```{r}
@@ -316,8 +244,8 @@ ggplot(hw_lolli,  aes(x = CommonName, y = Total)) +
     legend.position = "none",
     plot.title = element_text(size = 20, family = "Lato", face = "bold"),
     plot.subtitle = element_text(size = 15, family = "Lato"),
-    axis.title = element_text(family = "Lato"),
-    axis.text = element_text(family = "Lato")
+    axis.title = element_text(family = "Lato", size = 13),
+    axis.text = element_text(family = "Lato", size = 12)
     )
 
   
@@ -417,7 +345,7 @@ ggplot(
     
     plot.title = element_text(size = 20, family = "Lato", face = "bold"),
     plot.subtitle = element_text(size = 15, family = "Lato"),
-    axis.text = element_text(family = "Lato")
+    axis.text = element_text(family = "Lato", size = 12)
     )
 
 ```
@@ -425,8 +353,113 @@ ggplot(
 
 ## Banding Data Plots 
 
+### Waffle chart 
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+banding_waffle <- banding_clean |> 
+  filter(BandingCode == 1) |> 
+  group_by(CommonName, Sex) |> 
+  summarise(TotalBanded = n(), .groups = "drop") |> 
+  filter(CommonName %in% c("Peregrine Falcon", "Merlin","Northern Harrier", "Red-shouldered Hawk")) 
+```
 
-## Alternative types of plots [WORK IN PROGRESS]
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+p_waffle <- ggplot(banding_waffle, aes(fill = Sex, values = TotalBanded)) +
+  geom_waffle(color = "white", size = 0.4, n_rows = 6) +  # n_rows controls each panel's grid height
+  facet_wrap(~ CommonName, ncol = 1, strip.position = "top") +
+  coord_equal() +                     # ensures squares are square
+  scale_x_discrete() +                # avoids weird x scale expansion
+  scale_y_continuous(expand = c(0, 0)) +
+  scale_fill_brewer(palette = "Set2") +
+  guides(fill = guide_legend(title = "Sex")) +
+  
+  labs(title = "Distribution of Select Banded Raptors From 1983-2025") + 
+  theme_void() +
+  
+  theme(
+      legend.position = "bottom",
+      strip.text = element_text(face = "bold"),
+      legend.title = element_blank(), 
+      plot.title = element_text(size = 20, family = "Lato", face = "bold"),
+      axis.text = element_text(family = "Lato")
+    )
+
+p_waffle
+
+
+```
+
+
+### Donut charts 
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+# Clean data for donut charts 
+banding_donut_name <- banding_clean |>
+  # filter to new bands 
+  filter(BandingCode == 1) |> 
+  # group by common name date and sex 
+  group_by(CommonName) |> 
+  summarise(TotalCount = n(), .groups = "drop") |> 
+  # Lump species outside top 6 (by weighted counts) to "Other Birds"
+  mutate(CommonName = fct_lump_n(CommonName, n = 6,
+                                 w = TotalCount,
+                                 other_level = "Other Birds")) |> 
+  # group by CommonName to group other birds 
+  group_by(CommonName) |> 
+  summarise(TotalCount = sum(TotalCount))
+
+
+```
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+# Compute percentages
+banding_donut_name$fraction = banding_donut_name$TotalCount / sum(banding_donut_name$TotalCount)
+
+# Compute the cumulative percentages (top of each rectangle)
+banding_donut_name$ymax = cumsum(banding_donut_name$fraction)
+
+# Compute the bottom of each rectangle
+banding_donut_name$ymin = c(0, head(banding_donut_name$ymax, n=-1))
+
+# Compute label position for species
+banding_donut_name$labelPosition <- (banding_donut_name$ymax + banding_donut_name$ymin) / 2
+
+# Count label 
+banding_donut_name$count_label <- paste0(comma(banding_donut_name$TotalCount))
+
+# Species label
+banding_donut_name$species_label <- paste0(banding_donut_name$CommonName)
+
+# Make plot 
+ggplot(banding_donut_name, aes(ymax=ymax, ymin=ymin, xmax=3.8, xmin=2.9, fill=CommonName)) +
+  geom_rect() +
+  coord_polar(theta="y", clip = "off") + 
+  # thickness of ring 
+  xlim(c(1, 4)) + 
+  # species label
+  # geom_text( x=4.6, aes(y=labelPosition, label=species_label, color=CommonName), size=5, fontface = "bold") +
+  # count label 
+  geom_text( x=3.3, aes(y=labelPosition, label=count_label), size=4.5, color = "white") +
+  # center text
+  annotate("text", x = 1, y = 0, 
+           label = paste0("Total Birds Banded \n From 1983-2025 \n= ", comma(sum(banding_donut_name$TotalCount))),
+           size = 5, color = "#1F305E", fontface = "bold", hjust = 0.5) +
+
+  scale_fill_manual(values = parks_pal_expanded) +
+  scale_color_manual(values = parks_pal_expanded) +
+  theme_void() + 
+  theme(legend.position = "right")
+```
+
+Could also make a smaller callout donut chart that shows the porportions of the "Other Birds" category 
+
+## Plot Archive (not included in poster)
 
 ## Heatmap to show distribution of counts 
 
@@ -435,216 +468,303 @@ This is code found [in this blog post](https://restateinsight.com/posts/general-
 ```{r}
 #| code-fold: true
 #| code-summary: "Show the code"
-`%||%` <- function(a, b) {
-  if(is.null(a)) b else a
-}
-
-GeomRtile <- ggplot2::ggproto(
-  "GeomRtile", 
-  statebins:::GeomRrect, # 1) only change compared to ggplot2:::GeomTile
-                     
-  extra_params = c("na.rm"),
-  setup_data = function(data, params) {
-    data$width <- data$width %||% params$width %||% resolution(data$x, FALSE)
-    data$height <- data$height %||% params$height %||% resolution(data$y, FALSE)
-
-    transform(data,
-      xmin = x - width / 2,  xmax = x + width / 2,  width = NULL,
-      ymin = y - height / 2, ymax = y + height / 2, height = NULL
-    )
-  },
-  default_aes = ggplot2::aes(
-    fill = "grey20", colour = NA, size = 0.1, linetype = 1,
-    alpha = NA, width = NA, height = NA
-  ),
-  required_aes = c("x", "y"),
-
-  # These aes columns are created by setup_data(). They need to be listed here so
-  # that GeomRect$handle_na() properly removes any bars that fall outside the defined
-  # limits, not just those for which x and y are outside the limits
-  non_missing_aes = c("xmin", "xmax", "ymin", "ymax"),
-  draw_key = draw_key_polygon
-)
-
-geom_rtile <- function(mapping = NULL, data = NULL,
-                       stat = "identity", position = "identity",
-                       radius = grid::unit(6, "pt"), # 2) add radius argument
-                       ...,
-                       na.rm = FALSE,
-                       show.legend = NA,
-                       inherit.aes = TRUE) {
-  ggplot2::layer(
-    data = data,
-    mapping = mapping,
-    stat = stat,
-    geom = GeomRtile,
-    position = position,
-    show.legend = show.legend,
-    inherit.aes = inherit.aes,
-    params = rlang::list2(
-      radius = radius,
-      na.rm = na.rm,
-      ...
-    )
-  )
-}
-```
-
-
-
-```{r}
-#| code-fold: true
-#| code-summary: "Show the code"
-# Add date information
-hw_heatmap <- hw_full_dailycount |> 
-  mutate(
-    # Gets the number of the week in the year
-    n_week = week(SamplingDate),
-    # Gets weekday number - Starts the week at sunday
-    n_day = wday(SamplingDate, week_start = 7),
-    # Weekday labels for the plot
-    weekday_label = wday(SamplingDate, week_start = 7, label = TRUE, abbr = TRUE),
-    weekday_label = fct_rev(weekday_label),
-    # Month labels for the plot
-    month = month(SamplingDate, label = TRUE, abbr = TRUE) 
-    )
-
-# Filter to year 2019 and Sharp-shinned Hawk for test 
-hw_heatmap_2019 <- hw_heatmap |> 
-  filter(SurveyYear == 2019, 
-         CommonName == "Sharp-shinned Hawk")
-```
-
-
-### Plot 
-
-#### For 2019 only
-```{r}
-#| code-fold: true
-#| code-summary: "Show the code"
-# Find the positions of the month labels
-tab <- hw_heatmap_2019|> 
-  summarise(nmin = min(n_week), .by = "month")
-
-# heat map
-ggplot(hw_heatmap_2019, aes(n_week, weekday_label)) +
-  geom_rtile(
-    aes(fill = DailyCount),
-    color = "white",
-    radius = unit(2, "pt"),
-    width = 0.9,
-    height = 0.9
-    ) +
-  # Highlight the months on the horizontal axis
-  scale_x_continuous(
-    limits = c(27, 53), # from early july to late december 
-    breaks = tab$nmin,
-    labels = as.character(tab$month),
-    position = "top",
-    expand = c(0, 0)
-  ) +
-  # Highlight days of the week on the vertical axis
-  scale_y_discrete(breaks = c("Mon", "Wed", "Fri")) +
-  # Adjust color palette
-  scale_fill_distiller(
-    palette = "Oranges",
-    direction = 1,
-    na.value = "gray90") +
-  
-  # Removes x and y labels
-  labs(x = NULL, 
-       y = NULL,
-       title = "Sharp-shinned Hawk Counts in 2019") +
-  # Removes the color legend
-  guides(fill = "none") +
-  theme_minimal() +
-  theme(
-    panel.grid = element_blank(),
-    text = element_text(color = "gray10")
-  )
-```
-
-#### Facet wrap plot from to 2019 to 2024
-
-```{r}
-#| code-fold: true
-#| code-summary: "Show the code"
-# Filter to 2019-2025 and Sharp-shinned Hawk for test 
-hw_heatmap_2019_2024 <- hw_heatmap |> 
-  filter(SurveyYear >= 2019 & SurveyYear <= 2024,
-         CommonName == "Sharp-shinned Hawk")  #"American Kestrel"  "Sharp-shinned Hawk"
-```
-
-```{r}
-#| code-fold: true
-#| code-summary: "Show the code"
-# Find the positions of the month labels (Not the best way to fix this, i just want to see )
-# tab <- hw_heatmap_2019_2024 |> 
-#   filter(SurveyYear == 2023) |> 
-#   summarise(nmin = min(n_week), .by = "month")
-
-
-min_year <- hw_heatmap_2019_2024 |>
-  arrange(n_week, SurveyYear) |>
-  slice(1) |>
-  pull(SurveyYear)
-
-tab <- hw_heatmap_2019_2024 |>
-  filter(SurveyYear == min_year) |>
-  summarise(nmin = min(n_week), .by = month) |>
-  arrange(month)
-
-
-
-# heat map
-plot <- ggplot(hw_heatmap_2019_2024, aes(n_week, weekday_label)) +
-  geom_rtile(
-    aes(fill = DailyCount),
-    color = "white",
-    radius = unit(2, "pt"),
-    width = 0.9,
-    height = 0.9
-    ) +
-  # Highlight the months on the horizontal axis
-  scale_x_continuous(
-#    limits = c(27, 53), # from early july to late december 
-    breaks = tab$nmin,
-    labels = as.character(tab$month),
-    position = "top",
-    expand = c(0, 0)
-  ) +
-  # Highlight days of the week on the vertical axis
-  scale_y_discrete(breaks = c("Mon", "Wed", "Fri")) +
-  # Adjust color palette
-  scale_fill_distiller(
-    palette = "Greens",
-    direction = 1,
-    na.value = "gray90") +
-  
-  # Removes x and y labels
-  labs(x = NULL, y = NULL) +
-  # Removes the color legend
-  guides(fill = "none") +
-  # Separate by year 
-  facet_wrap(~ SurveyYear, ncol = 1) +
-  
-  theme_minimal() +
-  theme(
-    panel.grid = element_blank(),
-    text = element_text(color = "gray10")
-  )
-
-plot
-
-# Add month labels per facet as text at the top
-# plot +
-#   geom_text(
-#     data = tab,
-#     aes(x = nmin, y = levels(hw_heatmap_2019_2024$weekday_label)[1],  # top row #label
-#         label = as.character(month)),
-#     inherit.aes = FALSE,
-#     vjust = -0.6,        # push above tiles
-#     size  = 3.2
+# `%||%` <- function(a, b) {
+#   if(is.null(a)) b else a
+# }
+# 
+# GeomRtile <- ggplot2::ggproto(
+#   "GeomRtile", 
+#   statebins:::GeomRrect, # 1) only change compared to ggplot2:::GeomTile
+#                      
+#   extra_params = c("na.rm"),
+#   setup_data = function(data, params) {
+#     data$width <- data$width %||% params$width %||% resolution(data$x, FALSE)
+#     data$height <- data$height %||% params$height %||% resolution(data$y, FALSE)
+# 
+#     transform(data,
+#       xmin = x - width / 2,  xmax = x + width / 2,  width = NULL,
+#       ymin = y - height / 2, ymax = y + height / 2, height = NULL
+#     )
+#   },
+#   default_aes = ggplot2::aes(
+#     fill = "grey20", colour = NA, size = 0.1, linetype = 1,
+#     alpha = NA, width = NA, height = NA
+#   ),
+#   required_aes = c("x", "y"),
+# 
+#   # These aes columns are created by setup_data(). They need to be listed here so
+#   # that GeomRect$handle_na() properly removes any bars that fall outside the defined
+#   # limits, not just those for which x and y are outside the limits
+#   non_missing_aes = c("xmin", "xmax", "ymin", "ymax"),
+#   draw_key = draw_key_polygon
+# )
+# 
+# geom_rtile <- function(mapping = NULL, data = NULL,
+#                        stat = "identity", position = "identity",
+#                        radius = grid::unit(6, "pt"), # 2) add radius argument
+#                        ...,
+#                        na.rm = FALSE,
+#                        show.legend = NA,
+#                        inherit.aes = TRUE) {
+#   ggplot2::layer(
+#     data = data,
+#     mapping = mapping,
+#     stat = stat,
+#     geom = GeomRtile,
+#     position = position,
+#     show.legend = show.legend,
+#     inherit.aes = inherit.aes,
+#     params = rlang::list2(
+#       radius = radius,
+#       na.rm = na.rm,
+#       ...
+#     )
 #   )
+# }
+```
 
+```{r}
+# #| code-fold: true
+# #| code-summary: "Show the code"
+# # Add date information
+# hw_heatmap <- hw_full_dailycount |> 
+#   mutate(
+#     # Gets the number of the week in the year
+#     n_week = week(SamplingDate),
+#     # Gets weekday number - Starts the week at sunday
+#     n_day = wday(SamplingDate, week_start = 7),
+#     # Weekday labels for the plot
+#     weekday_label = wday(SamplingDate, week_start = 7, label = TRUE, abbr = TRUE),
+#     weekday_label = fct_rev(weekday_label),
+#     # Month labels for the plot
+#     month = month(SamplingDate, label = TRUE, abbr = TRUE) 
+#     )
+# 
+# # Filter to year 2019 and Sharp-shinned Hawk for test 
+# hw_heatmap_2019 <- hw_heatmap |> 
+#   filter(SurveyYear == 2019, 
+#          CommonName == "Sharp-shinned Hawk")
+```
+
+For 2019 only
+```{r}
+# #| code-fold: true
+# #| code-summary: "Show the code"
+# # Find the positions of the month labels
+# tab <- hw_heatmap_2019|> 
+#   summarise(nmin = min(n_week), .by = "month")
+# 
+# # heat map
+# ggplot(hw_heatmap_2019, aes(n_week, weekday_label)) +
+#   geom_rtile(
+#     aes(fill = DailyCount),
+#     color = "white",
+#     radius = unit(2, "pt"),
+#     width = 0.9,
+#     height = 0.9
+#     ) +
+#   # Highlight the months on the horizontal axis
+#   scale_x_continuous(
+#     limits = c(27, 53), # from early july to late december 
+#     breaks = tab$nmin,
+#     labels = as.character(tab$month),
+#     position = "top",
+#     expand = c(0, 0)
+#   ) +
+#   # Highlight days of the week on the vertical axis
+#   scale_y_discrete(breaks = c("Mon", "Wed", "Fri")) +
+#   # Adjust color palette
+#   scale_fill_distiller(
+#     palette = "Oranges",
+#     direction = 1,
+#     na.value = "gray90") +
+#   
+#   # Removes x and y labels
+#   labs(x = NULL, 
+#        y = NULL,
+#        title = "Sharp-shinned Hawk Counts in 2019") +
+#   # Removes the color legend
+#   guides(fill = "none") +
+#   theme_minimal() +
+#   theme(
+#     panel.grid = element_blank(),
+#     text = element_text(color = "gray10")
+#   )
+```
+
+Facet wrap plot from to 2019 to 2024
+
+```{r}
+# #| code-fold: true
+# #| code-summary: "Show the code"
+# # Filter to 2019-2025 and Sharp-shinned Hawk for test 
+# hw_heatmap_2019_2024 <- hw_heatmap |> 
+#   filter(SurveyYear >= 2019 & SurveyYear <= 2024,
+#          CommonName == "Sharp-shinned Hawk")  #"American Kestrel"  "Sharp-shinned Hawk"
+```
+
+```{r}
+# #| code-fold: true
+# #| code-summary: "Show the code"
+# # Find the positions of the month labels (Not the best way to fix this, i just want to see )
+# # tab <- hw_heatmap_2019_2024 |> 
+# #   filter(SurveyYear == 2023) |> 
+# #   summarise(nmin = min(n_week), .by = "month")
+# 
+# 
+# min_year <- hw_heatmap_2019_2024 |>
+#   arrange(n_week, SurveyYear) |>
+#   slice(1) |>
+#   pull(SurveyYear)
+# 
+# tab <- hw_heatmap_2019_2024 |>
+#   filter(SurveyYear == min_year) |>
+#   summarise(nmin = min(n_week), .by = month) |>
+#   arrange(month)
+# 
+# 
+# 
+# # heat map
+# plot <- ggplot(hw_heatmap_2019_2024, aes(n_week, weekday_label)) +
+#   geom_rtile(
+#     aes(fill = DailyCount),
+#     color = "white",
+#     radius = unit(2, "pt"),
+#     width = 0.9,
+#     height = 0.9
+#     ) +
+#   # Highlight the months on the horizontal axis
+#   scale_x_continuous(
+# #    limits = c(27, 53), # from early july to late december 
+#     breaks = tab$nmin,
+#     labels = as.character(tab$month),
+#     position = "top",
+#     expand = c(0, 0)
+#   ) +
+#   # Highlight days of the week on the vertical axis
+#   scale_y_discrete(breaks = c("Mon", "Wed", "Fri")) +
+#   # Adjust color palette
+#   scale_fill_distiller(
+#     palette = "Greens",
+#     direction = 1,
+#     na.value = "gray90") +
+#   
+#   # Removes x and y labels
+#   labs(x = NULL, y = NULL) +
+#   # Removes the color legend
+#   guides(fill = "none") +
+#   # Separate by year 
+#   facet_wrap(~ SurveyYear, ncol = 1) +
+#   
+#   theme_minimal() +
+#   theme(
+#     panel.grid = element_blank(),
+#     text = element_text(color = "gray10")
+#   )
+# 
+# plot
+# 
+#  Add month labels per facet as text at the top
+#  plot +
+#    geom_text(
+#      data = tab,
+#      aes(x = nmin, y = levels(hw_heatmap_2019_2024$weekday_label)[1],  # top row #label
+#          label = as.character(month)),
+#      inherit.aes = FALSE,
+#      vjust = -0.6,        # push above tiles
+#      size  = 3.2
+#    )
+
+```
+
+### Stacked bar chart to show sex and counts 
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+# Stacked bar chart 
+
+# ggplot(banding_clean, aes(x = CommonName, fill = Sex)) +
+#   geom_bar(position = "stack", color = "grey20", linewidth = 0.2) +
+#   scale_fill_brewer(palette = "Set2") +
+#   labs(
+#     x = "Common Name",
+#     y = "Number of records",
+#     fill = "Sex",
+#     title = "Number of records per species by sex"
+#   ) +
+#   theme_minimal(base_size = 12) +
+#   
+#   theme(
+#     axis.text.x = element_text(angle = 45, hjust = 1),
+#     legend.position = "top",
+#     legend.title = element_blank(),
+#     plot.title = element_text(size = 20, family = "Lato", face = "bold"),
+#     axis.text = element_text(family = "Lato", size = 12)
+#     
+#     )
+
+```
+
+### Tree Map to show species diversity from 2020 to 2025 
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+# # Clean daily counts to prepare for treemap plot
+# hw_treemap <- hw_full_dailycount |> 
+#   # remove Monarch Butterfly  
+#   filter(!CommonName ==  "Monarch Butterfly") |> 
+#   # filter to years 2020 through 2025 
+#   filter(SurveyYear >= 2020) |> 
+#   # group by species 
+#   group_by(CommonName) |> 
+#   summarise(Total = sum(DailyCount)) |> 
+#   # order by number 
+#   arrange(desc(Total)) |> 
+#   slice_head(n = 25)
+```
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+# # Count how many species (levels) you have
+# n_species <- n_distinct(hw_treemap$CommonName)
+# 
+# # Repeat your palette to the needed length
+# parks_pal_expanded <- rep(unname(parks_pal), length.out = n_species)
+# 
+# # Get bird stats for subtitle 
+# total_birds_20_25 <- comma(sum(hw_treemap$Total))
+# total_bird_species <- length(unique(hw_full_dailycount$CommonName))
+# 
+# 
+# 
+# # Build tree map using treemapify 
+# ggplot(hw_treemap, aes(area = Total, fill = CommonName, label = CommonName)) +
+#   geom_treemap() +
+#   geom_treemap_text(colour = "white",
+#                     place = "centre",
+#                     size = 15, 
+#                     grow = TRUE,
+#                     family = "Lato") +
+#   # title and subtitle text 
+#   labs(title = "Which birds are seen the most during Hawk Watch?",
+#        subtitle = paste0("From 2020 to 2025 a total of ", total_birds_20_25, " birds were identified by volunteers spanning ", total_bird_species, " different species. The most common \nbird sited was the Band-tailed Pigeon, followed by Turkey Vultures and Red Tailed Hawk\n")) +
+#   
+#   # fill treemap with custom color palette called 'parks_pal'
+#   scale_fill_manual(values = unname(parks_pal_expanded)) +
+#   
+#   # theme elements
+#   theme(
+#     # remove legend
+#     legend.position = "none",    
+#     # title to Lato & center
+#     plot.title = element_text(family = "Lato", face = "bold", 
+#                               size = 25),
+#     # subtitle to Lato
+#     plot.subtitle = element_text(
+#       family = "Lato", size = 18, margin = margin(t = 6))
+#     )
 ```
