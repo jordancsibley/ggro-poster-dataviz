@@ -23,8 +23,8 @@ library(here)
 library(janitor)
 library(lubridate)
 library(statebins) # for heatmap
-library(treemap) # for treemap plot 
-library(treemapify) # for better treemap?
+library(treemapify) # for treemap
+library(ggridges)
 library(scales)
 
 # Font 
@@ -314,8 +314,8 @@ ggplot(hw_lolli,  aes(x = CommonName, y = Total)) +
     # remove y axis title & legend 
     axis.title.y = element_blank(),
     legend.position = "none",
-    plot.title = element_text(size = 15, family = "Lato"),
-    plot.subtitle = element_text(size = 12, family = "Lato"),
+    plot.title = element_text(size = 20, family = "Lato", face = "bold"),
+    plot.subtitle = element_text(size = 15, family = "Lato"),
     axis.title = element_text(family = "Lato"),
     axis.text = element_text(family = "Lato")
     )
@@ -330,15 +330,95 @@ ggplot(hw_lolli,  aes(x = CommonName, y = Total)) +
 
 This example looks at the density of sightings of Sharp-shinned hawks over time during Hawk Watch. I chose to compare it to the density of a common species Red-tailed hawk. Is there another species that would be comparable? 
 
+Year range of Sharp-shinned hawk obs = 1992 - 2025 
+Filter to 1995 - 2025 in order to break into groups of 5 years 
+
 ```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+
 # Clean daily counts data to prepare for density plot 
 
 # determine year range of ssh 
-# break years up into n yearly bins 
+hw_density <- hw_full_dailycount |> 
+  # filter for species of interest 
+  filter(CommonName %in% c("Sharp-shinned Hawk", "Red-tailed Hawk")) |> 
+  # filter for 1995 to 2024 
+  filter(SurveyYear %in% 1995:2024) |> 
+  # extract month and day from date 
+  mutate(MonthDay = make_date(2000, month(SamplingDate), day(SamplingDate))) |> 
+  # create year groups 
+  mutate(YearGroup = case_when(SurveyYear %in% 1995:1999 ~ "1995-1999",
+                               SurveyYear %in% 2000:2004 ~ "2000-2004",
+                               SurveyYear %in% 2005:2009 ~ "2005-2009",
+                               SurveyYear %in% 2010:2014 ~ "2010-2014",
+                               SurveyYear %in% 2015:2019 ~ "2015-2019",
+                               SurveyYear %in% 2020:2024 ~ "2020-2024")) |>
+  # factor year group for plot order of y axis 
+  mutate(YearGroup = fct_rev(YearGroup)) |> 
 
-# Is
+  # put the group you want on TOP as the LAST factor level
+  mutate(CommonName = fct_relevel(CommonName,
+                                  "Sharp-shinned Hawk", 
+                                  "Red-tailed Hawk"))
 
 
+```
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+# Create density plot of bird observations
+ggplot(
+  hw_density,
+  aes(
+    x = MonthDay,
+    y = YearGroup,
+    fill = CommonName,  # fill color by species
+    weight = DailyCount # include weight if you have counts
+  )  
+) +
+  # initialize density ridge
+  geom_density_ridges(
+    position = "identity", # order of species 
+    alpha = 0.5,
+    scale = 0.9, # vertical overlap (smaller value = less overlap)
+    color = NA
+  ) +
+  # add custom colors
+  scale_fill_manual(values = c(
+    "Sharp-shinned Hawk" = parks_pal[["Honey Bronze"]],
+    "Red-tailed Hawk"    = parks_pal[["Rosy Copper"]]
+  )) +
+  
+  # labels 
+  labs(title = "Density of Sightings During Hawk Watch Season",
+       subtitle = "Something about red-tailed seen consistantly but sharp-shinned \nseen more consistantly in September but in more recent years the peak is in October") +
+  
+  # set custom time range
+  scale_x_date(
+      limits = c(as.Date("2000-07-01"), as.Date("2000-12-30")),
+      date_breaks = "1 month",
+      date_labels = "%B"
+    ) +
+
+  # theme elements
+  theme_minimal() + 
+  theme(
+    legend.position = "top", 
+    legend.direction = "horizontal",
+    legend.title = element_blank(),
+    legend.text = element_text(family = "Lato"),
+    
+    # remove axis titles 
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    
+    plot.title = element_text(size = 20, family = "Lato", face = "bold"),
+    plot.subtitle = element_text(size = 15, family = "Lato"),
+    axis.text = element_text(family = "Lato")
+    )
 
 ```
 
