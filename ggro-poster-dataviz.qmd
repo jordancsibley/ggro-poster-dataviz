@@ -5,10 +5,10 @@ editor: visual
 author: "Jordan Sibley"
 date: last-modified
 editor_options: 
-  chunk_output_type: console
+  chunk_output_type: inline
 ---
 
-## Set Up 
+## Set Up
 
 ```{r}
 #| output: false
@@ -53,10 +53,9 @@ banding_raw <- read_excel(here("data", "banding", "BandingFlat01.14.26.xlsx"), s
 
 ```
 
+## Exploration and Cleaning
 
-## Exploration and Cleaning 
-
-### Hawk Watch Data 
+### Hawk Watch Data
 
 ```{r}
 #| code-fold: true
@@ -86,8 +85,6 @@ qc_summary <- function(data) {
 qc_summary(hw_full_raw)
 ```
 
-
-
 ```{r}
 #| code-fold: true
 #| code-summary: "Show the code"
@@ -96,7 +93,12 @@ hw_full_clean <- hw_full_raw |>
   # clean column names 
   clean_names(case = "upper_camel") |> 
   # remove columns 
-  select(c(-TeamName, -Dayleader, -NumberObservers, -NumberVisitors, -WindDirection, -WindSpeed, -ProofLevelName, -IncludeInTotals, -YearDay, -MonthDate, -LocalStartTime, - LocalEndTime, -UtcStartTime, -UtcEndTime))
+  select(c(-TeamName, -Dayleader, -NumberObservers, -NumberVisitors, -WindDirection, -WindSpeed, -ProofLevelName, -IncludeInTotals, -YearDay, -MonthDate, -LocalStartTime, - LocalEndTime, -UtcStartTime, -UtcEndTime)) |> 
+  # filter to birds of interest 
+  filter(CommonName %in% c("American Kestrel", "Bald Eagle", "Broad-winged Hawk", "Cooper's Hawk",	"Ferruginous Hawk", "Golden Eagle", "Merlin", "Northern Goshawk", "Northern Harrier", "Osprey", "Peregrine Falcon", "Prairie Falcon", "Red-shouldered Hawk", "Red-tailed Hawk", "Rough-legged Hawk", "Sharp-shinned Hawk", "Swainson's Hawk", "Turkey Vulture", "White-tailed Kite")) |> 
+  # change name of goshawk
+  mutate(CommonName = case_when(CommonName == "Northern Goshawk" ~ "American Goshawk",
+                              TRUE ~ CommonName))
 
 
 # Group by date and species to get a daily total count 
@@ -105,8 +107,8 @@ hw_full_dailycount <- hw_full_clean |>
   summarise(DailyCount = sum(BirdCount, na.rm = TRUE), .groups = "drop")
 ```
 
-
 ### Banding data
+
 ```{r}
 #| output: false
 #| quiet: true
@@ -172,8 +174,8 @@ banding_clean <- banding_raw |>
 
 ```
 
+## Color palette for plots
 
-## Color palette for plots 
 ```{r}
 parks_pal <- c("Blue Green" = "#4d9cbc",
                "Cerulean" = "#326e85",
@@ -186,36 +188,29 @@ parks_pal <- c("Blue Green" = "#4d9cbc",
                "Lime Moss" = "#adb449",
                "Palm Leaf" = "#8b913b")
 
+# Repeat your palette to the needed length
+parks_pal_expanded <- rep(unname(parks_pal), length.out = 20)
+
 monochromeR::view_palette(parks_pal)
 
 
 ```
 
-
-
 ## Hawkwatch species counts and diversity
 
+### Lollipop chart to show counts from 2020 to 2025
 
-### Lollipop chart to show counts from 2020 to 2025 
 ```{r}
 #| code-fold: true
 #| code-summary: "Show the code"
 # Clean data 
 hw_lolli <- hw_full_dailycount |> 
-  # remove Monarch Butterfly  
-  filter(!CommonName ==  "Monarch Butterfly") |> 
   # filter to years 2020 through 2025 
   filter(SurveyYear >= 2020) |> 
-  
-  # Lump species outside top 25 (by weighted counts) to "Other Birds"
-  mutate(CommonName = fct_lump_n(CommonName, n = 25,
-                                 w = DailyCount,
-                                 other_level = "Other Birds")) |>
   # Group by common name 
   group_by(CommonName) |>
   summarise(Total = sum(DailyCount, na.rm = TRUE), .groups = "drop") |> 
-  arrange((CommonName != "Other Birds"),  # keep Other last
-          (Total), CommonName) |> 
+  arrange(-desc(Total)) |> 
   # factor order by name to maintain descending order of counts 
   mutate(CommonName = factor(CommonName, levels=CommonName))
 ```
@@ -232,9 +227,9 @@ ggplot(hw_lolli,  aes(x = CommonName, y = Total)) +
   coord_flip(clip = "off") + 
   # axis labels 
   labs(y = "Total Birds Counted",
-       title = "Which Bird Species are Our Volunteers Seeing?",
+       title = "Which Raptors are Our Volunteers Seeing?",
        subtitle = "Hawk Watch Counts from 2020 - 2025") + 
-  scale_y_continuous(breaks = seq(0, max(hw_lolli$Total), by = 20000), 
+  scale_y_continuous(breaks = seq(0, max(hw_lolli$Total), by = 10000), 
                      labels = scales::comma) +
   # theme elements 
   theme_minimal() + 
@@ -251,15 +246,15 @@ ggplot(hw_lolli,  aes(x = CommonName, y = Total)) +
   
 ```
 
+Plot notes: - Do we want to see what it looks like with the number of each species at the end of the line? Could give more context to birds with low numbers
 
-## Hawkwatch Arrivial of Species 
+## Hawkwatch Arrivial of Species
 
 ### Density plots to compare arrivial of Sharp-shinned hawks
 
-This example looks at the density of sightings of Sharp-shinned hawks over time during Hawk Watch. I chose to compare it to the density of a common species Red-tailed hawk. Is there another species that would be comparable? 
+This example looks at the density of sightings of Sharp-shinned hawks over time during Hawk Watch. I chose to compare it to the density of a common species Red-tailed hawk. Is there another species that would be comparable?
 
-Year range of Sharp-shinned hawk obs = 1992 - 2025 
-Filter to 1995 - 2025 in order to break into groups of 5 years 
+Year range of Sharp-shinned hawk obs = 1992 - 2025 Filter to 1995 - 2025 in order to break into groups of 5 years
 
 ```{r}
 #| code-fold: true
@@ -270,7 +265,7 @@ Filter to 1995 - 2025 in order to break into groups of 5 years
 # determine year range of ssh 
 hw_density <- hw_full_dailycount |> 
   # filter for species of interest 
-  filter(CommonName %in% c("Sharp-shinned Hawk", "Red-tailed Hawk")) |> 
+  filter(CommonName %in% c("Sharp-shinned Hawk", "Red-tailed Hawk", "Merlin", "Broad-winged Hawk")) |> 
   # filter for 1995 to 2024 
   filter(SurveyYear %in% 1995:2024) |> 
   # extract month and day from date 
@@ -287,13 +282,16 @@ hw_density <- hw_full_dailycount |>
 
   # put the group you want on TOP as the LAST factor level
   mutate(CommonName = fct_relevel(CommonName,
+                                  "Red-tailed Hawk", 
+                                  "Broad-winged Hawk",
                                   "Sharp-shinned Hawk", 
-                                  "Red-tailed Hawk"))
+                                  "Merlin", 
+                                  ))
 
 
 ```
 
-```{r}
+```{r, fig.width=8, fig.height=8}
 #| code-fold: true
 #| code-summary: "Show the code"
 
@@ -304,25 +302,29 @@ ggplot(
     x = MonthDay,
     y = YearGroup,
     fill = CommonName,  # fill color by species
-    weight = DailyCount # include weight if you have counts
+    weight = DailyCount # include weight for counts
   )  
 ) +
   # initialize density ridge
   geom_density_ridges(
     position = "identity", # order of species 
-    alpha = 0.5,
+    alpha = 0.6, # transparency
     scale = 0.9, # vertical overlap (smaller value = less overlap)
     color = NA
   ) +
-  # add custom colors
+  # add custom colors per species 
   scale_fill_manual(values = c(
-    "Sharp-shinned Hawk" = parks_pal[["Honey Bronze"]],
-    "Red-tailed Hawk"    = parks_pal[["Rosy Copper"]]
+    "Sharp-shinned Hawk" = "#e5b03f",
+    "Red-tailed Hawk"    = "#dd5e4c",
+    "Broad-winged Hawk" = "#6bbaa9",
+    "Merlin" = "#adb449"
+    
   )) +
   
   # labels 
   labs(title = "Density of Sightings During Hawk Watch Season",
-       subtitle = "Something about red-tailed seen consistantly but sharp-shinned \nseen more consistantly in September but in more recent years the peak is in October") +
+       #subtitle = "Something about red-tailed seen consistantly but sharp-shinned \nseen more consistantly in September but in more recent years the peak is in October"
+       ) +
   
   # set custom time range
   scale_x_date(
@@ -337,63 +339,112 @@ ggplot(
     legend.position = "top", 
     legend.direction = "horizontal",
     legend.title = element_blank(),
-    legend.text = element_text(family = "Lato"),
+    legend.text = element_text(family = "Lato", size = 14),
     
     # remove axis titles 
     axis.title.y = element_blank(),
     axis.title.x = element_blank(),
     
+    # plot text elements
     plot.title = element_text(size = 20, family = "Lato", face = "bold"),
     plot.subtitle = element_text(size = 15, family = "Lato"),
-    axis.text = element_text(family = "Lato", size = 12)
+    axis.text = element_text(family = "Lato", size = 15),
     )
 
 ```
 
+Context for this density plot:
 
-## Banding Data Plots 
+This kind of plot reflects distribution of observation dates, not the actual count of birds.
 
-### Waffle chart 
+        
+"Each ridge shows the estimated distribution of observation dates for a species in that year group,           normalized to area = 1 for that species–year group (weights influence shape, but the total area of the           curve is still 1). The result is a smooth curve that answers “When during the season do sightings tend to cluster?”
+
+Because density curves are normalized to integrate to 1, a taller peak means the dates are more tightly concentrated around that time. It doesn’t mean there were more total birds—just that the sightings (weighted by counts) are more focused in time.
+
+So when looking at heights of ridges: Peaks show timing and concentration (weighted by Daily Count); heights are normalized per species–year group and do not reflect totals.
+
+This plot does not answer which bird was seen the most often and instead addresses when during the season do sightings tend to cluster. 
+
+## Banding Data Plots
+
+### Waffle chart
+
 ```{r}
 #| code-fold: true
 #| code-summary: "Show the code"
 banding_waffle <- banding_clean |> 
   filter(BandingCode == 1) |> 
+  # filter years (for plot test) 
+  filter(SamplingDate >= ymd("2015-01-01")) |> 
   group_by(CommonName, Sex) |> 
   summarise(TotalBanded = n(), .groups = "drop") |> 
-  filter(CommonName %in% c("Peregrine Falcon", "Merlin","Northern Harrier", "Red-shouldered Hawk")) 
+  # filter to big 4 species 
+  filter(CommonName %in% c("Sharp-shinned Hawk", "American Kestrel", "Red-Tailed Hawk", "Cooper's Hawk")) 
 ```
 
-```{r}
+```{r, fig.width=8, fig.height=8}
 #| code-fold: true
 #| code-summary: "Show the code"
 p_waffle <- ggplot(banding_waffle, aes(fill = Sex, values = TotalBanded)) +
-  geom_waffle(color = "white", size = 0.4, n_rows = 6) +  # n_rows controls each panel's grid height
-  facet_wrap(~ CommonName, ncol = 1, strip.position = "top") +
+  
+  geom_waffle(color = "white", 
+              size = 0.2,    # size of each square 
+              n_rows = 20   # n_rows controls each panel's grid height
+              ) +  
+  # facet by species 
+  facet_wrap(~ CommonName, 
+             ncol = 1, 
+             strip.position = "bottom", # position of species name 
+             ) + 
+  
   coord_equal() +                     # ensures squares are square
   scale_x_discrete() +                # avoids weird x scale expansion
   scale_y_continuous(expand = c(0, 0)) +
-  scale_fill_brewer(palette = "Set2") +
+  
+  # set custom colors 
+  scale_fill_manual(values = c(
+    "Female" = "#d79d1d", 
+    "Male" = "#6bbaa9",
+    "Unknown" = "#326e85"
+  )) +
+  
+  # labels 
+  labs(title = "Distribution of Select Banded Raptors From 2015-2025") + 
+  
+  # legend guide 
   guides(fill = guide_legend(title = "Sex")) +
-  
-  labs(title = "Distribution of Select Banded Raptors From 1983-2025") + 
+ 
+   # theme elements 
   theme_void() +
-  
   theme(
-      legend.position = "bottom",
-      strip.text = element_text(face = "bold"),
-      legend.title = element_blank(), 
-      plot.title = element_text(size = 20, family = "Lato", face = "bold"),
-      axis.text = element_text(family = "Lato")
-    )
+    # legend 
+    legend.title = element_blank(),
+    legend.position = "bottom",
+    legend.text = element_text(family = "Lato", size = 13),
+    
+    # strip text 
+    strip.text = element_text(face = "bold", family = "Lato", margin = margin(t = 2, b = 5), size = 15 ),
+    
+    plot.title = element_text(
+      size = 20,
+      family = "Lato",
+      face = "bold"
+    ),
+    # axis text 
+    axis.text = element_text(family = "Lato")
+  )
 
 p_waffle
 
 
 ```
+Plot notes: 
 
+Do we want to include age in this plot too? Maybe not this specific plot 
 
-### Donut charts 
+### Donut charts
+
 ```{r}
 #| code-fold: true
 #| code-summary: "Show the code"
@@ -415,7 +466,7 @@ banding_donut_name <- banding_clean |>
 
 ```
 
-```{r}
+```{r, fig.width=8, fig.height=6}
 #| code-fold: true
 #| code-summary: "Show the code"
 # Compute percentages
@@ -445,7 +496,7 @@ ggplot(banding_donut_name, aes(ymax=ymax, ymin=ymin, xmax=3.8, xmin=2.9, fill=Co
   # species label
   # geom_text( x=4.6, aes(y=labelPosition, label=species_label, color=CommonName), size=5, fontface = "bold") +
   # count label 
-  geom_text( x=3.3, aes(y=labelPosition, label=count_label), size=4.5, color = "white") +
+  geom_text( x=3.3, aes(y=labelPosition, label=count_label), size=4.5, color = "white", fontface = "bold") +
   # center text
   annotate("text", x = 1, y = 0, 
            label = paste0("Total Birds Banded \n From 1983-2025 \n= ", comma(sum(banding_donut_name$TotalCount))),
@@ -457,13 +508,13 @@ ggplot(banding_donut_name, aes(ymax=ymax, ymin=ymin, xmax=3.8, xmin=2.9, fill=Co
   theme(legend.position = "right")
 ```
 
-Could also make a smaller callout donut chart that shows the porportions of the "Other Birds" category 
+Could also make a smaller callout donut chart that shows the porportions of the "Other Birds" category
 
 ## Plot Archive (not included in poster)
 
-## Heatmap to show distribution of counts 
+## Heatmap to show distribution of counts
 
-This is code found [in this blog post](https://restateinsight.com/posts/general-posts/2024-12-github-contributions-plot/) which outlines how to make a  make a `geom_rtile` function.
+This is code found [in this blog post](https://restateinsight.com/posts/general-posts/2024-12-github-contributions-plot/) which outlines how to make a make a `geom_rtile` function.
 
 ```{r}
 #| code-fold: true
@@ -547,6 +598,7 @@ This is code found [in this blog post](https://restateinsight.com/posts/general-
 ```
 
 For 2019 only
+
 ```{r}
 # #| code-fold: true
 # #| code-summary: "Show the code"
@@ -677,7 +729,7 @@ Facet wrap plot from to 2019 to 2024
 
 ```
 
-### Stacked bar chart to show sex and counts 
+### Stacked bar chart to show sex and counts
 
 ```{r}
 #| code-fold: true
@@ -706,7 +758,7 @@ Facet wrap plot from to 2019 to 2024
 
 ```
 
-### Tree Map to show species diversity from 2020 to 2025 
+### Tree Map to show species diversity from 2020 to 2025
 
 ```{r}
 #| code-fold: true
