@@ -5,7 +5,7 @@ editor: visual
 author: "Jordan Sibley"
 date: last-modified
 editor_options: 
-  chunk_output_type: inline
+  chunk_output_type: console
 ---
 
 ## Set Up
@@ -65,7 +65,7 @@ glimpse(hw_full_raw)
 
 # Write function to print out unique values and summary stats 
 qc_summary <- function(data) {
-  for (col_name in names(data)) {
+  for (col in names(data)) {
     cat("\n---", col_name, "---\n")
     
     if (is.character(data[[col_name]])) {
@@ -82,7 +82,7 @@ qc_summary <- function(data) {
 }
 
 # Check quality of hawkwatch full 
-qc_summary(hw_full_raw)
+#qc_summary(hw_full_raw)
 ```
 
 ```{r}
@@ -119,7 +119,7 @@ hw_full_dailycount <- hw_full_clean |>
 glimpse(banding_raw)
 
 # View data elements 
-qc_summary(banding_raw)
+#qc_summary(banding_raw)
 ```
 
 ```{r}
@@ -404,9 +404,9 @@ p_waffle <- ggplot(banding_waffle, aes(fill = Sex, values = TotalBanded)) +
   
   # set custom colors 
   scale_fill_manual(values = c(
-    "Female" = "#d79d1d", 
-    "Male" = "#6bbaa9",
-    "Unknown" = "#326e85"
+    "Female" = "#326e85",
+    "Male" = "#adb449",
+    "Unknown" = "grey50"
   )) +
   
   # labels 
@@ -449,7 +449,7 @@ Do we want to include age in this plot too? Maybe not this specific plot
 #| code-fold: true
 #| code-summary: "Show the code"
 # Clean data for donut charts 
-banding_donut_name <- banding_clean |>
+banding_donut <- banding_clean |>
   # filter to new bands 
   filter(BandingCode == 1) |> 
   # group by common name date and sex 
@@ -466,40 +466,42 @@ banding_donut_name <- banding_clean |>
 
 ```
 
+
 ```{r, fig.width=8, fig.height=6}
 #| code-fold: true
 #| code-summary: "Show the code"
 # Compute percentages
-banding_donut_name$fraction = banding_donut_name$TotalCount / sum(banding_donut_name$TotalCount)
+banding_donut$fraction = banding_donut$TotalCount / sum(banding_donut$TotalCount)
 
 # Compute the cumulative percentages (top of each rectangle)
-banding_donut_name$ymax = cumsum(banding_donut_name$fraction)
+banding_donut$ymax = cumsum(banding_donut$fraction)
 
 # Compute the bottom of each rectangle
-banding_donut_name$ymin = c(0, head(banding_donut_name$ymax, n=-1))
+banding_donut$ymin = c(0, head(banding_donut$ymax, n=-1))
 
 # Compute label position for species
-banding_donut_name$labelPosition <- (banding_donut_name$ymax + banding_donut_name$ymin) / 2
+banding_donut$labelPosition <- (banding_donut$ymax + banding_donut$ymin) / 2
 
 # Count label 
-banding_donut_name$count_label <- paste0(comma(banding_donut_name$TotalCount))
+banding_donut$count_label <- paste0(comma(banding_donut$TotalCount))
 
 # Species label
-banding_donut_name$species_label <- paste0(banding_donut_name$CommonName)
+banding_donut$species_label <- paste0(banding_donut$CommonName)
 
 # Make plot 
-ggplot(banding_donut_name, aes(ymax=ymax, ymin=ymin, xmax=3.8, xmin=2.9, fill=CommonName)) +
+ggplot(banding_donut, aes(ymax=ymax, ymin=ymin, xmax=3.8, xmin=2.9, fill=CommonName)) +
   geom_rect() +
   coord_polar(theta="y", clip = "off") + 
   # thickness of ring 
   xlim(c(1, 4)) + 
   # species label
   # geom_text( x=4.6, aes(y=labelPosition, label=species_label, color=CommonName), size=5, fontface = "bold") +
+ 
   # count label 
   geom_text( x=3.3, aes(y=labelPosition, label=count_label), size=4.5, color = "white", fontface = "bold") +
   # center text
   annotate("text", x = 1, y = 0, 
-           label = paste0("Total Birds Banded \n From 1983-2025 \n= ", comma(sum(banding_donut_name$TotalCount))),
+           label = paste0("Total Birds Banded \n From 1983-2025 \n= ", comma(sum(banding_donut$TotalCount))),
            size = 5, color = "#1F305E", fontface = "bold", hjust = 0.5) +
 
   scale_fill_manual(values = parks_pal_expanded) +
@@ -508,6 +510,124 @@ ggplot(banding_donut_name, aes(ymax=ymax, ymin=ymin, xmax=3.8, xmin=2.9, fill=Co
   theme(legend.position = "right")
 ```
 
+
+```{r, fig.width=8, fig.height=6}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+# --- Data prep ---
+
+# Define custom colors 
+banding_pal <- c(
+               "Cooper's Hawk" = "#326e85",
+               "Merlin" = "#4d9cbc",
+               "Red-Tailed Hawk" = "#ce3b27",
+               "American Kestrel" = "#6bbaa9",
+               "Red-shouldered Hawk" = "#8b913b",
+               "Sharp-shinned Hawk" = "#d79d1d",
+               "Other Birds" = "#adb449")
+
+#               "Seagrass" = "#489987",  "#ce3b27" "#dd5e4c" "#e5b03f"
+#               "Lime Moss" = "#adb449",
+#               "Blue Green" = "#4d9cbc",
+
+# Define order of species in donut chart (first element will start at 12 o'clock by default)
+banding_order<- c(
+  "Cooper's Hawk", 
+  "Merlin", 
+  "Red-shouldered Hawk",
+  "Red-Tailed Hawk", 
+  "American Kestrel",
+  "Sharp-shinned Hawk", 
+  "Other Birds"
+)
+
+# Reorder rows to match desired sequence
+banding_donut <- banding_donut |> 
+  mutate(CommonName = forcats::fct_relevel(CommonName, banding_order)) |> 
+  arrange(CommonName)
+
+
+# Compute percentages
+banding_donut$fraction <- banding_donut$TotalCount / sum(banding_donut$TotalCount)
+# Compute the cumulative percentages (top of each rectangle)
+banding_donut$ymax <- cumsum(banding_donut$fraction)
+# Compute the bottom of each rectangle
+banding_donut$ymin <- c(0, head(banding_donut$ymax, -1))
+# Compute label position for species
+banding_donut$labelPosition <- (banding_donut$ymax + banding_donut$ymin) / 2
+
+banding_donut$count_label <- paste0(comma(banding_donut$TotalCount))
+banding_donut$species_label <- banding_donut$CommonName
+
+# Controls for donut thickness & label placement
+inner_r <- 2.65
+outer_r <- 3.6
+label_r <- 3.6   # where labeling segment starts 
+x_max   <- 4.8    # extend plot range so labels aren't clipped
+
+# Angle in radians for each mid-slice (0 at 12 o'clock, increasing clockwise)
+banding_donut$angle <- 2 * pi * banding_donut$labelPosition
+banding_donut$hjust_side <- ifelse(sin(banding_donut$angle) > 0, 0, 1)
+
+# ---- Initialize ggplot ---- 
+ggplot(banding_donut, aes(ymax = ymax, ymin = ymin, xmax = outer_r, xmin = inner_r, fill = CommonName)) +
+  geom_rect() +
+  coord_polar(theta = "y", clip = "off") +
+  
+  # Make room so the repelled labels can live outside the ring
+  xlim(c(1, x_max)) +
+  
+  # species text outside of ring 
+  ggrepel::geom_text_repel(
+    data = banding_donut,
+    aes(x = label_r, y = labelPosition, label = species_label, color = CommonName, hjust = hjust_side),
+    # text elements 
+    fontface = "bold", 
+    family = "Lato", 
+    size = 7,
+    
+    inherit.aes = FALSE, # dont inherit aesthetics from the global ggplot
+    direction = "y", # restricts repelling to the vertical direction
+    nudge_x = 0.35, # pushed labels outward (expands segment)
+    segment.size = 0.7, # segment thickness 
+    segment.color = "grey50", # segment color 
+    min.segment.length = 0, # always draw lines (positive value = short lines omitted)
+    box.padding = 0.25, # how much space around each label box 
+    point.padding = 0.1, # padding around anchor point
+    force = 1.0, # higher values push labels further apart 
+    max.overlaps = Inf, # dont drop labels due to overcrowding
+    seed = 123 # reproducible label placement 
+    ) +
+
+  # count labels within ring
+  geom_text(
+    x = (inner_r + outer_r) / 2, 
+    aes(y = labelPosition, label = count_label),
+    size = 4.5, color = "white", fontface = "bold", family = "Lato"
+  ) +
+
+  # center text
+  annotate(
+    "text", x = 1, y = 0,
+    label = paste0("Total Birds Banded \n From 1983-2025 \n= ", comma(sum(banding_donut$TotalCount))),
+    size = 8, color = "#1F305E", fontface = "bold", hjust = 0.5
+  ) +
+
+  # custom colors 
+  scale_fill_manual(values = banding_pal) +
+  scale_color_manual(values = banding_pal) + 
+  
+  # theme elements 
+  theme_void() +
+  theme(
+    # extra room left/right so labels aren't cut off
+    plot.margin = margin(10, 40, 10, 40),  
+    # remove legend 
+    legend.position = "none" 
+  ) 
+
+```
 Could also make a smaller callout donut chart that shows the porportions of the "Other Birds" category
 
 ## Plot Archive (not included in poster)
