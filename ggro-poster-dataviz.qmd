@@ -27,6 +27,7 @@ library(treemapify) # for treemap
 library(ggridges) # ridgeline density 
 library(waffle) # waffle plot 
 library(scales) # commas 
+library(ggtext)
 
 # Font 
 font_add_google(name = "Lato", family = "Lato")
@@ -206,7 +207,7 @@ monochromeR::view_palette(parks_pal)
 # Clean data 
 hw_lolli <- hw_full_dailycount |> 
   # filter to years 2020 through 2025 
-  filter(SurveyYear >= 2020) |> 
+  filter(SurveyYear >= 2000) |> 
   # Group by common name 
   group_by(CommonName) |>
   summarise(Total = sum(DailyCount, na.rm = TRUE), .groups = "drop") |> 
@@ -221,26 +222,39 @@ hw_lolli <- hw_full_dailycount |>
 # Initalize ggplot 
 ggplot(hw_lolli,  aes(x = CommonName, y = Total)) +
   # geoms for lollipop chart 
-  geom_segment(aes(xend = CommonName, yend = 0), linewidth = 1.3,  color= parks_pal["Blue Green"]) +
-  geom_point(size = 3, color=parks_pal["Cerulean"]) + 
+  geom_segment(aes(xend = CommonName, yend = 0), linewidth = 1.4,  color= parks_pal["Rosy Copper"]) +
+  geom_point(size = 3, color=parks_pal["Burnt Tangerine"]) + 
+  
+  # count labels above points
+  geom_text(aes(label = comma(Total)), 
+            hjust = 0,  # left-align so label grows to the right
+            nudge_y = 0.02 * max(hw_lolli$Total, na.rm = TRUE),  # push right
+            size = 5,
+            family = "Lato",
+            fontface = "bold",
+            color = parks_pal["Burnt Tangerine"]) +
+  
   # flip x y coords 
   coord_flip(clip = "off") + 
   # axis labels 
   labs(y = "Total Birds Counted",
        title = "Which Raptors are Our Volunteers Seeing?",
-       subtitle = "Hawk Watch Counts from 2020 - 2025") + 
-  scale_y_continuous(breaks = seq(0, max(hw_lolli$Total), by = 10000), 
-                     labels = scales::comma) +
+       subtitle = "Hawk Watch Counts from 2000 - 2025") + 
+  scale_y_continuous(breaks = seq(0, max(hw_lolli$Total), by = 50000), 
+                     labels = scales::comma,
+                     # add a bit of room on the right 
+                     expand = expansion(mult = c(0, 0.08))) +
   # theme elements 
   theme_minimal() + 
   theme(
     # remove y axis title & legend 
     axis.title.y = element_blank(),
     legend.position = "none",
+   
     plot.title = element_text(size = 20, family = "Lato", face = "bold"),
     plot.subtitle = element_text(size = 15, family = "Lato"),
-    axis.title = element_text(family = "Lato", size = 13),
-    axis.text = element_text(family = "Lato", size = 12)
+    axis.title = element_text(family = "Lato", size = 13.5),
+    axis.text = element_text(family = "Lato", size = 13, color = "black")
     )
 
   
@@ -314,7 +328,7 @@ ggplot(
   ) +
   # add custom colors per species 
   scale_fill_manual(values = c(
-    "Sharp-shinned Hawk" = "#e5b03f",
+    "Sharp-shinned Hawk" = "#4F83DA",
     "Red-tailed Hawk"    = "#dd5e4c",
     "Broad-winged Hawk" = "#6bbaa9",
     "Merlin" = "#adb449"
@@ -348,7 +362,7 @@ ggplot(
     # plot text elements
     plot.title = element_text(size = 20, family = "Lato", face = "bold"),
     plot.subtitle = element_text(size = 15, family = "Lato"),
-    axis.text = element_text(family = "Lato", size = 15),
+    axis.text = element_text(family = "Lato", size = 15, face = "bold"),
     )
 
 ```
@@ -380,7 +394,9 @@ banding_waffle <- banding_clean |>
   group_by(CommonName, Sex) |> 
   summarise(TotalBanded = n(), .groups = "drop") |> 
   # filter to big 4 species 
-  filter(CommonName %in% c("Sharp-shinned Hawk", "American Kestrel", "Red-Tailed Hawk", "Cooper's Hawk")) 
+  filter(CommonName %in% c("Sharp-shinned Hawk", "American Kestrel", "Red-Tailed Hawk", "Cooper's Hawk")) |> 
+  # order by smallest to largest 
+  mutate(CommonName = forcats::fct_relevel(CommonName, c("American Kestrel", "Red-Tailed Hawk", "Sharp-shinned Hawk", "Cooper's Hawk")))
 ```
 
 ```{r, fig.width=8, fig.height=8}
@@ -395,12 +411,12 @@ p_waffle <- ggplot(banding_waffle, aes(fill = Sex, values = TotalBanded)) +
   # facet by species 
   facet_wrap(~ CommonName, 
              ncol = 1, 
-             strip.position = "bottom", # position of species name 
+             strip.position = "top", # position of species name 
              ) + 
   
   coord_equal() +                     # ensures squares are square
   scale_x_discrete() +                # avoids weird x scale expansion
-  scale_y_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) + # increase space between plot and title?
   
   # set custom colors 
   scale_fill_manual(values = c(
@@ -424,7 +440,26 @@ p_waffle <- ggplot(banding_waffle, aes(fill = Sex, values = TotalBanded)) +
     legend.text = element_text(family = "Lato", size = 13),
     
     # strip text 
-    strip.text = element_text(face = "bold", family = "Lato", margin = margin(t = 2, b = 5), size = 15 ),
+    strip.placement = "outside",
+    strip.background.x = ggh4x::element_part_rect(
+        fill = "white",
+        colour = "grey30",   # color of the separator line
+        linewidth = 0.6,
+        side = "b",          # draw only the bottom border
+   
+      ),
+    
+    # strip.placement = "outside",  # puts the strip outside the panel area
+    # strip.background = element_rect(
+    #   fill = "white",
+    #   colour = "grey30",  # border color around the strip
+    #   linewidth = 0.6),
+
+    strip.text = element_text(face = "bold", family = "Lato",
+                              margin = margin(t = 4, r = 6, b = 8, l = 6),
+                              size = 15), 
+
+
     
     plot.title = element_text(
       size = 20,
@@ -470,44 +505,44 @@ banding_donut <- banding_clean |>
 ```{r, fig.width=8, fig.height=6}
 #| code-fold: true
 #| code-summary: "Show the code"
-# Compute percentages
-banding_donut$fraction = banding_donut$TotalCount / sum(banding_donut$TotalCount)
-
-# Compute the cumulative percentages (top of each rectangle)
-banding_donut$ymax = cumsum(banding_donut$fraction)
-
-# Compute the bottom of each rectangle
-banding_donut$ymin = c(0, head(banding_donut$ymax, n=-1))
-
-# Compute label position for species
-banding_donut$labelPosition <- (banding_donut$ymax + banding_donut$ymin) / 2
-
-# Count label 
-banding_donut$count_label <- paste0(comma(banding_donut$TotalCount))
-
-# Species label
-banding_donut$species_label <- paste0(banding_donut$CommonName)
-
-# Make plot 
-ggplot(banding_donut, aes(ymax=ymax, ymin=ymin, xmax=3.8, xmin=2.9, fill=CommonName)) +
-  geom_rect() +
-  coord_polar(theta="y", clip = "off") + 
-  # thickness of ring 
-  xlim(c(1, 4)) + 
-  # species label
-  # geom_text( x=4.6, aes(y=labelPosition, label=species_label, color=CommonName), size=5, fontface = "bold") +
- 
-  # count label 
-  geom_text( x=3.3, aes(y=labelPosition, label=count_label), size=4.5, color = "white", fontface = "bold") +
-  # center text
-  annotate("text", x = 1, y = 0, 
-           label = paste0("Total Birds Banded \n From 1983-2025 \n= ", comma(sum(banding_donut$TotalCount))),
-           size = 5, color = "#1F305E", fontface = "bold", hjust = 0.5) +
-
-  scale_fill_manual(values = parks_pal_expanded) +
-  scale_color_manual(values = parks_pal_expanded) +
-  theme_void() + 
-  theme(legend.position = "right")
+# # Compute percentages
+# banding_donut$fraction = banding_donut$TotalCount / sum(banding_donut$TotalCount)
+# 
+# # Compute the cumulative percentages (top of each rectangle)
+# banding_donut$ymax = cumsum(banding_donut$fraction)
+# 
+# # Compute the bottom of each rectangle
+# banding_donut$ymin = c(0, head(banding_donut$ymax, n=-1))
+# 
+# # Compute label position for species
+# banding_donut$labelPosition <- (banding_donut$ymax + banding_donut$ymin) / 2
+# 
+# # Count label 
+# banding_donut$count_label <- paste0(comma(banding_donut$TotalCount))
+# 
+# # Species label
+# banding_donut$species_label <- paste0(banding_donut$CommonName)
+# 
+# # Make plot 
+# ggplot(banding_donut, aes(ymax=ymax, ymin=ymin, xmax=3.8, xmin=2.9, fill=CommonName)) +
+#   geom_rect() +
+#   coord_polar(theta="y", clip = "off") + 
+#   # thickness of ring 
+#   xlim(c(1, 4)) + 
+#   # species label
+#   # geom_text( x=4.6, aes(y=labelPosition, label=species_label, color=CommonName), size=5, fontface = "bold") +
+#  
+#   # count label 
+#   geom_text( x=3.3, aes(y=labelPosition, label=count_label), size=4.5, color = "white", fontface = "bold") +
+#   # center text
+#   annotate("text", x = 1, y = 0, 
+#            label = paste0("Total Birds Banded \n From 1983-2025 \n= ", comma(sum(banding_donut$TotalCount))),
+#            size = 5, color = "#1F305E", fontface = "bold", hjust = 0.5) +
+# 
+#   scale_fill_manual(values = parks_pal_expanded) +
+#   scale_color_manual(values = parks_pal_expanded) +
+#   theme_void() + 
+#   theme(legend.position = "right")
 ```
 
 
@@ -521,15 +556,11 @@ ggplot(banding_donut, aes(ymax=ymax, ymin=ymin, xmax=3.8, xmin=2.9, fill=CommonN
 banding_pal <- c(
                "Cooper's Hawk" = "#326e85",
                "Merlin" = "#4d9cbc",
-               "Red-Tailed Hawk" = "#ce3b27",
+               "Red-Tailed Hawk" = "#dd5e4c",
                "American Kestrel" = "#6bbaa9",
                "Red-shouldered Hawk" = "#8b913b",
                "Sharp-shinned Hawk" = "#d79d1d",
                "Other Birds" = "#adb449")
-
-#               "Seagrass" = "#489987",  "#ce3b27" "#dd5e4c" "#e5b03f"
-#               "Lime Moss" = "#adb449",
-#               "Blue Green" = "#4d9cbc",
 
 # Define order of species in donut chart (first element will start at 12 o'clock by default)
 banding_order<- c(
@@ -570,6 +601,10 @@ x_max   <- 4.8    # extend plot range so labels aren't clipped
 banding_donut$angle <- 2 * pi * banding_donut$labelPosition
 banding_donut$hjust_side <- ifelse(sin(banding_donut$angle) > 0, 0, 1)
 
+# Total value of banding counts for center text
+total_val <- scales::comma(sum(banding_donut$TotalCount))
+
+
 # ---- Initialize ggplot ---- 
 ggplot(banding_donut, aes(ymax = ymax, ymin = ymin, xmax = outer_r, xmin = inner_r, fill = CommonName)) +
   geom_rect() +
@@ -606,13 +641,27 @@ ggplot(banding_donut, aes(ymax = ymax, ymin = ymin, xmax = outer_r, xmin = inner
     aes(y = labelPosition, label = count_label),
     size = 4.5, color = "white", fontface = "bold", family = "Lato"
   ) +
-
-  # center text
+  
+  # center text 
   annotate(
-    "text", x = 1, y = 0,
-    label = paste0("Total Birds Banded \n From 1983-2025 \n= ", comma(sum(banding_donut$TotalCount))),
-    size = 8, color = "#1F305E", fontface = "bold", hjust = 0.5
+    geom = "richtext",
+    x = 1, y = 0,
+    label = paste0(
+      "<span style='font-family:Lato; font-weight:700; font-size:26pt; color:#1F305E;'>",
+        "Total Birds Banded<br>",
+        "From 1983-2025:<br>",
+        "<span style='font-size:32pt; color:#E13030;'>", total_val, "</span>",
+      "</span>"
+    ),
+
+    # remove the default label box
+    fill = NA, label.color = NA, label.padding = grid::unit(c(0, 0, 0, 0), "pt"),
+    fontface = "bold",
+    hjust = 0.5, 
+    #vjust = 0.5,
+    lineheight = 1.0  # tighten (default is ~1.2)
   ) +
+
 
   # custom colors 
   scale_fill_manual(values = banding_pal) +
