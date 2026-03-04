@@ -28,6 +28,7 @@ library(ggridges) # ridgeline density
 library(waffle) # waffle plot 
 library(scales) # commas 
 library(ggtext)
+library(svglite) # for exporting svg
 
 # Font 
 font_add_google(name = "Lato", family = "Lato")
@@ -45,9 +46,6 @@ showtext_auto(enable = TRUE)
 # ---- Hawkwatch data sets ----
 # Total dataset
 hw_full_raw <- read_csv(here("data", "hawk-watch", "Hawkwatch_Final.csv"))
-
-# 2025 dataset 
-hw_2025_raw <- read_csv(here("data", "hawk-watch", "Hawkwatch_2025_0.csv"))
 
 # ---- Banding data ----
 banding_raw <- read_excel(here("data", "banding", "BandingFlat01.14.26.xlsx"), sheet = 1)
@@ -159,7 +157,7 @@ banding_clean <- banding_raw |>
                                 SpeciesCode == "UNID_BUTEO" ~ "Unidentified Buteo",
                                 SpeciesCode == "UNID_RAP" ~ "Unidentified Raptor",
                                 SpeciesCode == "UNID_FALC" ~ "Unidentified Falcon",
-                                SpeciesCode == "OSPR" ~ "Ospery",
+                                SpeciesCode == "OSPR" ~ "Osprey",
                                 SpeciesCode == "UNID_EAGLE" ~ "Unidentified Eagle",
                                 TRUE ~ NA_character_
                                 )) |> 
@@ -216,11 +214,11 @@ hw_lolli <- hw_full_dailycount |>
   mutate(CommonName = factor(CommonName, levels=CommonName))
 ```
 
-```{r}
+```{r, fig.width=8, fig.height=6}
 #| code-fold: true
 #| code-summary: "Show the code"
 # Initalize ggplot 
-ggplot(hw_lolli,  aes(x = CommonName, y = Total)) +
+lollipop <- ggplot(hw_lolli,  aes(x = CommonName, y = Total)) +
   # geoms for lollipop chart 
   geom_segment(aes(xend = CommonName, yend = 0), linewidth = 1.4,  color= parks_pal["Rosy Copper"]) +
   geom_point(size = 3, color=parks_pal["Burnt Tangerine"]) + 
@@ -254,7 +252,7 @@ ggplot(hw_lolli,  aes(x = CommonName, y = Total)) +
    
     #plot.title = element_text(size = 20, family = "Lato", face = "bold"),
     #plot.subtitle = element_text(size = 15, family = "Lato"),
-    axis.title = element_text(family = "Lato", size = 15),
+    axis.title.x = element_text(family = "Lato", size = 15, margin = margin(t = 10, r = 0, b = 0, l = 0)),
     axis.text = element_text(family = "Lato", size = 13, color = "black"), 
     
     # remove background elements 
@@ -263,19 +261,26 @@ ggplot(hw_lolli,  aes(x = CommonName, y = Total)) +
     legend.background = element_rect(fill = NA, color = NA)
     )
 
-  
+lollipop
 ```
 
-Plot title: Which Raptors Are Our Volunteers Seeing? 
-Subtitle: Hawkwatch counts of birds of interest from 2000 to 2025
+
+```{r}
+# save as png
+ggsave(
+  filename = here::here("plot_exports", "hawkwatch_lollipop_plot.png"),
+  plot = lollipop, width = 8, height = 6, units = "in", dpi = 300
+)
+
+```
+
+Plot title: Which Raptors Are Our Volunteers Seeing? Subtitle: Hawkwatch counts of birds of interest from 2000 to 2025
 
 ## Hawkwatch Arrivial of Species
 
 ### Density plots to compare arrivial of Sharp-shinned hawks
 
-This example looks at the density of sightings of some migratory species 
-
-
+This example looks at the density of sightings of some migratory species
 
 ```{r}
 #| code-fold: true
@@ -318,7 +323,7 @@ hw_density <- hw_full_dailycount |>
 #| code-summary: "Show the code"
 
 # Create density plot of bird observations
-ggplot(
+density_plot <- ggplot(
   hw_density,
   aes(
     x = MonthDay,
@@ -389,24 +394,31 @@ ggplot(
 
     )
 
+density_plot
 ```
 
-Plot title: 
-plot subtitle: Each ridge shows the distribution of observation dates of each bird species. A a taller peak means the dates are more tightly concentrated around that time. 
 
+```{r}
+# save as png
+ggsave(
+  filename = here::here("plot_exports", "hawkwatch_density_plot.png"),
+  plot = density_plot, width = 8, height = 8, units = "in", dpi = 300
+)
+```
+
+Plot title: plot subtitle: Each ridge shows the distribution of observation dates of each bird species. A a taller peak means the dates are more tightly concentrated around that time.
 
 Context for this density plot:
 
 This kind of plot reflects distribution of observation dates, not the actual count of birds.
 
-        
-"Each ridge shows the estimated distribution of observation dates for a species in that year group,           normalized to area = 1 for that species–year group (weights influence shape, but the total area of the           curve is still 1). The result is a smooth curve that answers “When during the season do sightings tend to cluster?”
+"Each ridge shows the estimated distribution of observation dates for a species in that year group, normalized to area = 1 for that species–year group (weights influence shape, but the total area of the curve is still 1). The result is a smooth curve that answers “When during the season do sightings tend to cluster?”
 
 Because density curves are normalized to integrate to 1, a taller peak means the dates are more tightly concentrated around that time. It doesn’t mean there were more total birds—just that the sightings (weighted by counts) are more focused in time.
 
 So when looking at heights of ridges: Peaks show timing and concentration (weighted by Daily Count); heights are normalized per species–year group and do not reflect totals.
 
-This plot does not answer which bird was seen the most often and instead addresses when during the season do sightings tend to cluster. 
+This plot does not answer which bird was seen the most often and instead addresses when during the season do sightings tend to cluster.
 
 ## Banding Data Plots
 
@@ -444,7 +456,7 @@ p_waffle <- ggplot(banding_waffle, aes(fill = Sex, values = TotalBanded)) +
   
   coord_equal() +                     # ensures squares are square
   scale_x_discrete() +                # avoids weird x scale expansion
-  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) + # increase space between plot and title?
+  scale_y_continuous(expand = expansion(mult = c(0, 0.08))) + # increase space between plot and title
   
   # set custom colors 
   scale_fill_manual(values = c(
@@ -470,7 +482,7 @@ p_waffle <- ggplot(banding_waffle, aes(fill = Sex, values = TotalBanded)) +
     # strip text 
     strip.placement = "outside",
     strip.background.x = ggh4x::element_part_rect(
-        fill = "white",
+        fill = NA,
         colour = "grey30",   # color of the separator line
         linewidth = 0.6,
         side = "b",          # draw only the bottom border
@@ -479,10 +491,9 @@ p_waffle <- ggplot(banding_waffle, aes(fill = Sex, values = TotalBanded)) +
 
     strip.text = element_text(face = "bold", family = "Lato",
                               margin = margin(t = 4, r = 6, b = 8, l = 6),
-                              size = 15), 
+                              size = 16), 
     
-    plot.title = element_text(size = 20, family = "Lato", face = "bold"
-    ),
+ #   plot.title = element_text(size = 20, family = "Lato", face = "bold"),
     # axis text 
     axis.text = element_text(family = "Lato"), 
     
@@ -497,8 +508,15 @@ p_waffle
 
 ```
 
-Plot title: Who We Banded: Sex Distribution Across Four Raptor Species
-Plot subtitle: 
+```{r}
+# save as png
+ggsave(
+  filename = here::here("plot_exports", "banding_waffle_plot.png"),
+  plot = p_waffle, width = 8, height = 8, units = "in", dpi = 300
+)
+```
+
+Plot title: Who We Banded: Sex Distribution Across Four Raptor Species Plot subtitle: 2015 - 2025 
 
 ### Donut charts
 
@@ -535,7 +553,6 @@ banding_other_birds <- banding_clean |>
   filter(!CommonName %in% top_6_birds)
 
 ```
-
 
 ```{r, fig.width=8, fig.height=6}
 #| code-fold: true
@@ -597,7 +614,7 @@ total_val <- scales::comma(sum(banding_donut$TotalCount))
 
 
 # ---- Initialize ggplot ---- 
-ggplot(banding_donut, aes(ymax = ymax, ymin = ymin, xmax = outer_r, xmin = inner_r, fill = CommonName)) +
+donut_plot <- ggplot(banding_donut, aes(ymax = ymax, ymin = ymin, xmax = outer_r, xmin = inner_r, fill = CommonName)) +
   geom_rect() +
   coord_polar(theta = "y", clip = "off") +
   
@@ -638,11 +655,12 @@ ggplot(banding_donut, aes(ymax = ymax, ymin = ymin, xmax = outer_r, xmin = inner
     geom = "richtext",
     x = 1, y = 0,
     label = paste0(
-      "<span style='font-family:Lato; font-weight:700; font-size:26pt; color:#1F305E;'>",
-        "Total Birds Banded<br>",
-        "From 1983-2025:<br>",
-        "<span style='font-size:32pt; color:#E13030;'>", total_val, "</span>",
+       "<span style='font-size:32pt; color:#4768C2;'>", total_val, "<br>",
+       "<span style='font-family:Lato; font-weight:700; font-size:26pt;color:#1F305E;'>",
+      "Total Birds Banded<br>",
+      "From 1983-2025<br>",
       "</span>"
+       
     ),
 
     # remove the default label box
@@ -650,7 +668,7 @@ ggplot(banding_donut, aes(ymax = ymax, ymin = ymin, xmax = outer_r, xmin = inner
     fontface = "bold",
     hjust = 0.5, 
     #vjust = 0.5,
-    lineheight = 1.0  # tighten (default is ~1.2)
+    lineheight = 1.2  # tighten (default is ~1.2)
   ) +
 
 
@@ -671,11 +689,19 @@ ggplot(banding_donut, aes(ymax = ymax, ymin = ymin, xmax = outer_r, xmin = inner
     plot.background  = element_rect(fill = NA, color = NA),
     legend.background = element_rect(fill = NA, color = NA)
   ) 
-
+donut_plot
 ```
 
+```{r}
+# save as png
+ggsave(
+  filename = here::here("plot_exports", "banding_donut_plot.png"),
+  plot = donut_plot, width = 8, height = 6, units = "in", dpi = 300
+)
+```
 
-#### Other Birds donut 
+#### Other Birds donut
+
 ```{r, fig.width=8, fig.height=6}
 #| code-fold: true
 #| code-summary: "Show the code"
@@ -692,7 +718,7 @@ banding_other_order<- c(
   "Golden Eagle", 
   "Broad-winged Hawk", 
   "Northern Goshawk", 
-  "Ospery", 
+  "Osprey", 
   "Long-eared Owl", 
   "Rough-legged Hawk", 
   "Northern Harrier",
@@ -736,7 +762,7 @@ banding_other_birds$hjust_side <- ifelse(sin(banding_other_birds$angle) > 0, 0, 
 
 
 # ---- Initialize ggplot ---- 
-ggplot(banding_other_birds, aes(ymax = ymax, ymin = ymin, xmax = outer_r, xmin = inner_r, fill = CommonName)) +
+donut_plot2 <- ggplot(banding_other_birds, aes(ymax = ymax, ymin = ymin, xmax = outer_r, xmin = inner_r, fill = CommonName)) +
   geom_rect() +
   coord_polar(theta = "y", clip = "off") +
   
@@ -750,7 +776,7 @@ ggplot(banding_other_birds, aes(ymax = ymax, ymin = ymin, xmax = outer_r, xmin =
     # text elements 
     fontface = "bold", 
     family = "Lato", 
-    size = 5.5,
+    size = 6,
     
     inherit.aes = FALSE, # dont inherit aesthetics from the global ggplot
     direction = "y", # restricts repelling to the vertical direction
@@ -770,7 +796,7 @@ ggplot(banding_other_birds, aes(ymax = ymax, ymin = ymin, xmax = outer_r, xmin =
     x = (inner_r + outer_r) / 2, 
     aes(y = labelPosition, label = count_label),
     size = 3.5, color = "white", 
-   # fontface = "bold", 
+    fontface = "bold", 
     family = "Lato"
   ) +
   
@@ -779,10 +805,10 @@ ggplot(banding_other_birds, aes(ymax = ymax, ymin = ymin, xmax = outer_r, xmin =
     geom = "richtext",
     x = 1, y = 0,
     label = paste0(
-      "<span style='font-family:Lato; font-weight:700; font-size:25pt; color:#326e85;'>",
-      "Other Birds<br>",
-      "Banded:<br>",
+      "<span style='font-family:Lato; font-weight:700; font-size:28pt; color:#326e85;'>",
       "644<br>",
+      "Other Birds<br>",
+      "Banded<br>",
       "</span>"
     ),
 
@@ -813,11 +839,18 @@ ggplot(banding_other_birds, aes(ymax = ymax, ymin = ymin, xmax = outer_r, xmin =
     legend.background = element_rect(fill = NA, color = NA)
   ) 
 
-
+donut_plot2
 ```
 
-Plot title: Which Kinds of Birds Have We Banded? 
-Plot subtitle: Count of banded raptors from 1983 to 2025 
+```{r}
+# save as png
+ggsave(
+  filename = here::here("plot_exports", "banding_donut_plot2.png"),
+  plot = donut_plot2, width = 8, height = 6, units = "in", dpi = 300
+)
+```
+
+Plot title: Which Kinds of Birds Have We Banded? Plot subtitle: Count of banded raptors from 1983 to 2025
 
 ## Plot Archive (not included in poster)
 
