@@ -238,8 +238,9 @@ ggplot(hw_lolli,  aes(x = CommonName, y = Total)) +
   coord_flip(clip = "off") + 
   # axis labels 
   labs(y = "Total Birds Counted",
-       title = "Which Raptors are Our Volunteers Seeing?",
-       subtitle = "Hawk Watch Counts from 2000 - 2025") + 
+      # title = "Which Raptors are Our Volunteers Seeing?",
+      # subtitle = "Hawk Watch Counts from 2000 - 2025"
+      ) + 
   scale_y_continuous(breaks = seq(0, max(hw_lolli$Total), by = 50000), 
                      labels = scales::comma,
                      # add a bit of room on the right 
@@ -251,24 +252,30 @@ ggplot(hw_lolli,  aes(x = CommonName, y = Total)) +
     axis.title.y = element_blank(),
     legend.position = "none",
    
-    plot.title = element_text(size = 20, family = "Lato", face = "bold"),
-    plot.subtitle = element_text(size = 15, family = "Lato"),
-    axis.title = element_text(family = "Lato", size = 13.5),
-    axis.text = element_text(family = "Lato", size = 13, color = "black")
+    #plot.title = element_text(size = 20, family = "Lato", face = "bold"),
+    #plot.subtitle = element_text(size = 15, family = "Lato"),
+    axis.title = element_text(family = "Lato", size = 15),
+    axis.text = element_text(family = "Lato", size = 13, color = "black"), 
+    
+    # remove background elements 
+    panel.background = element_rect(fill = NA, color = NA),
+    plot.background  = element_rect(fill = NA, color = NA),
+    legend.background = element_rect(fill = NA, color = NA)
     )
 
   
 ```
 
-Plot notes: - Do we want to see what it looks like with the number of each species at the end of the line? Could give more context to birds with low numbers
+Plot title: Which Raptors Are Our Volunteers Seeing? 
+Subtitle: Hawkwatch counts of birds of interest from 2000 to 2025
 
 ## Hawkwatch Arrivial of Species
 
 ### Density plots to compare arrivial of Sharp-shinned hawks
 
-This example looks at the density of sightings of Sharp-shinned hawks over time during Hawk Watch. I chose to compare it to the density of a common species Red-tailed hawk. Is there another species that would be comparable?
+This example looks at the density of sightings of some migratory species 
 
-Year range of Sharp-shinned hawk obs = 1992 - 2025 Filter to 1995 - 2025 in order to break into groups of 5 years
+
 
 ```{r}
 #| code-fold: true
@@ -296,10 +303,11 @@ hw_density <- hw_full_dailycount |>
 
   # put the group you want on TOP as the LAST factor level
   mutate(CommonName = fct_relevel(CommonName,
-                                  "Red-tailed Hawk", 
+                                 
                                   "Broad-winged Hawk",
                                   "Sharp-shinned Hawk", 
                                   "Merlin", 
+                                  "Red-tailed Hawk", 
                                   ))
 
 
@@ -316,6 +324,7 @@ ggplot(
     x = MonthDay,
     y = YearGroup,
     fill = CommonName,  # fill color by species
+    color = CommonName, # outline color by common species 
     weight = DailyCount # include weight for counts
   )  
 ) +
@@ -324,7 +333,9 @@ ggplot(
     position = "identity", # order of species 
     alpha = 0.6, # transparency
     scale = 0.9, # vertical overlap (smaller value = less overlap)
-    color = NA
+    size = 0.6,               # thickness of the outline
+    outline_type = "full"     # draw a full closed outline
+
   ) +
   # add custom colors per species 
   scale_fill_manual(values = c(
@@ -335,10 +346,17 @@ ggplot(
     
   )) +
   
+  scale_color_manual(values = c(
+    "Sharp-shinned Hawk" = "#4F83DA",
+    "Red-tailed Hawk"    = "#dd5e4c",
+    "Broad-winged Hawk"  = "#6bbaa9",
+    "Merlin"             = "#adb449"
+  )) +
+  
   # labels 
-  labs(title = "Density of Sightings During Hawk Watch Season",
+ # labs(title = "Density of Sightings During Hawk Watch Season",
        #subtitle = "Something about red-tailed seen consistantly but sharp-shinned \nseen more consistantly in September but in more recent years the peak is in October"
-       ) +
+ #      ) +
   
   # set custom time range
   scale_x_date(
@@ -360,12 +378,22 @@ ggplot(
     axis.title.x = element_blank(),
     
     # plot text elements
-    plot.title = element_text(size = 20, family = "Lato", face = "bold"),
-    plot.subtitle = element_text(size = 15, family = "Lato"),
+ #   plot.title = element_text(size = 20, family = "Lato", face = "bold"),
+ #   plot.subtitle = element_text(size = 15, family = "Lato"),
     axis.text = element_text(family = "Lato", size = 15, face = "bold"),
+ 
+    # remove background elements 
+    panel.background = element_rect(fill = NA, color = NA),
+    plot.background  = element_rect(fill = NA, color = NA),
+    legend.background = element_rect(fill = NA, color = NA)
+
     )
 
 ```
+
+Plot title: 
+plot subtitle: Each ridge shows the distribution of observation dates of each bird species. A a taller peak means the dates are more tightly concentrated around that time. 
+
 
 Context for this density plot:
 
@@ -426,7 +454,7 @@ p_waffle <- ggplot(banding_waffle, aes(fill = Sex, values = TotalBanded)) +
   )) +
   
   # labels 
-  labs(title = "Distribution of Select Banded Raptors From 2015-2025") + 
+#  labs(title = "Distribution of Select Banded Raptors From 2015-2025") + 
   
   # legend guide 
   guides(fill = guide_legend(title = "Sex")) +
@@ -448,35 +476,29 @@ p_waffle <- ggplot(banding_waffle, aes(fill = Sex, values = TotalBanded)) +
         side = "b",          # draw only the bottom border
    
       ),
-    
-    # strip.placement = "outside",  # puts the strip outside the panel area
-    # strip.background = element_rect(
-    #   fill = "white",
-    #   colour = "grey30",  # border color around the strip
-    #   linewidth = 0.6),
 
     strip.text = element_text(face = "bold", family = "Lato",
                               margin = margin(t = 4, r = 6, b = 8, l = 6),
                               size = 15), 
-
-
     
-    plot.title = element_text(
-      size = 20,
-      family = "Lato",
-      face = "bold"
+    plot.title = element_text(size = 20, family = "Lato", face = "bold"
     ),
     # axis text 
-    axis.text = element_text(family = "Lato")
+    axis.text = element_text(family = "Lato"), 
+    
+    # remove background elements 
+    panel.background = element_rect(fill = NA, color = NA),
+    plot.background  = element_rect(fill = NA, color = NA),
+    legend.background = element_rect(fill = NA, color = NA)
   )
 
 p_waffle
 
 
 ```
-Plot notes: 
 
-Do we want to include age in this plot too? Maybe not this specific plot 
+Plot title: Who We Banded: Sex Distribution Across Four Raptor Species
+Plot subtitle: 
 
 ### Donut charts
 
@@ -487,7 +509,7 @@ Do we want to include age in this plot too? Maybe not this specific plot
 banding_donut <- banding_clean |>
   # filter to new bands 
   filter(BandingCode == 1) |> 
-  # group by common name date and sex 
+  # group by common name 
   group_by(CommonName) |> 
   summarise(TotalCount = n(), .groups = "drop") |> 
   # Lump species outside top 6 (by weighted counts) to "Other Birds"
@@ -498,51 +520,20 @@ banding_donut <- banding_clean |>
   group_by(CommonName) |> 
   summarise(TotalCount = sum(TotalCount))
 
+# Create dataset for Other Birds 
+top_6_birds <- banding_donut |> 
+  pull(CommonName)
+top_6_birds <- as.character(top_6_birds)
 
-```
+banding_other_birds <- banding_clean |> 
+  # filter to banding code = 1 
+  filter(BandingCode == 1) |> 
+  # group by common name 
+  group_by(CommonName) |> 
+  summarise(TotalCount = n(), .groups = "drop") |> 
+  # filter to species not in top 6 
+  filter(!CommonName %in% top_6_birds)
 
-
-```{r, fig.width=8, fig.height=6}
-#| code-fold: true
-#| code-summary: "Show the code"
-# # Compute percentages
-# banding_donut$fraction = banding_donut$TotalCount / sum(banding_donut$TotalCount)
-# 
-# # Compute the cumulative percentages (top of each rectangle)
-# banding_donut$ymax = cumsum(banding_donut$fraction)
-# 
-# # Compute the bottom of each rectangle
-# banding_donut$ymin = c(0, head(banding_donut$ymax, n=-1))
-# 
-# # Compute label position for species
-# banding_donut$labelPosition <- (banding_donut$ymax + banding_donut$ymin) / 2
-# 
-# # Count label 
-# banding_donut$count_label <- paste0(comma(banding_donut$TotalCount))
-# 
-# # Species label
-# banding_donut$species_label <- paste0(banding_donut$CommonName)
-# 
-# # Make plot 
-# ggplot(banding_donut, aes(ymax=ymax, ymin=ymin, xmax=3.8, xmin=2.9, fill=CommonName)) +
-#   geom_rect() +
-#   coord_polar(theta="y", clip = "off") + 
-#   # thickness of ring 
-#   xlim(c(1, 4)) + 
-#   # species label
-#   # geom_text( x=4.6, aes(y=labelPosition, label=species_label, color=CommonName), size=5, fontface = "bold") +
-#  
-#   # count label 
-#   geom_text( x=3.3, aes(y=labelPosition, label=count_label), size=4.5, color = "white", fontface = "bold") +
-#   # center text
-#   annotate("text", x = 1, y = 0, 
-#            label = paste0("Total Birds Banded \n From 1983-2025 \n= ", comma(sum(banding_donut$TotalCount))),
-#            size = 5, color = "#1F305E", fontface = "bold", hjust = 0.5) +
-# 
-#   scale_fill_manual(values = parks_pal_expanded) +
-#   scale_color_manual(values = parks_pal_expanded) +
-#   theme_void() + 
-#   theme(legend.position = "right")
 ```
 
 
@@ -554,13 +545,13 @@ banding_donut <- banding_clean |>
 
 # Define custom colors 
 banding_pal <- c(
-               "Cooper's Hawk" = "#326e85",
+               "Cooper's Hawk" = "#8b913b",
                "Merlin" = "#4d9cbc",
                "Red-Tailed Hawk" = "#dd5e4c",
                "American Kestrel" = "#6bbaa9",
-               "Red-shouldered Hawk" = "#8b913b",
+               "Red-shouldered Hawk" = "#adb449",
                "Sharp-shinned Hawk" = "#d79d1d",
-               "Other Birds" = "#adb449")
+               "Other Birds" = "#326e85")
 
 # Define order of species in donut chart (first element will start at 12 o'clock by default)
 banding_order<- c(
@@ -673,11 +664,160 @@ ggplot(banding_donut, aes(ymax = ymax, ymin = ymin, xmax = outer_r, xmin = inner
     # extra room left/right so labels aren't cut off
     plot.margin = margin(10, 40, 10, 40),  
     # remove legend 
-    legend.position = "none" 
+    legend.position = "none", 
+    
+    # remove background elements 
+    panel.background = element_rect(fill = NA, color = NA),
+    plot.background  = element_rect(fill = NA, color = NA),
+    legend.background = element_rect(fill = NA, color = NA)
   ) 
 
 ```
-Could also make a smaller callout donut chart that shows the porportions of the "Other Birds" category
+
+
+#### Other Birds donut 
+```{r, fig.width=8, fig.height=6}
+#| code-fold: true
+#| code-summary: "Show the code"
+
+## INSERT CUSTOM COLORS / ORDER 
+
+# Define order of species in donut chart (first element will start at 12 o'clock by default)
+banding_other_order<- c(
+  "Peregrine Falcon", 
+  "Eurasian Kestrel",
+  "Prairie Falcon", 
+  "Ferruginous Hawk",
+  "Turkey Vulture",
+  "Golden Eagle", 
+  "Broad-winged Hawk", 
+  "Northern Goshawk", 
+  "Ospery", 
+  "Long-eared Owl", 
+  "Rough-legged Hawk", 
+  "Northern Harrier",
+  "Great Horned Owl", 
+  "Swainson’s Hawk"
+  
+)
+
+# Reorder rows to match desired sequence
+banding_other_birds <- banding_other_birds |> 
+  mutate(CommonName = forcats::fct_relevel(CommonName, banding_other_order)) |> 
+  arrange(CommonName)
+
+# color palette 
+other_birds_pal <- c("#4E9BBC","#0353a4","#023e7d","#002855","#001845","#001233","#33415c","#4E9BBC","#0353a4","#023e7d","#002855","#001845","#001233","#33415c")
+
+# Compute percentages
+banding_other_birds$fraction <- banding_other_birds$TotalCount / sum(banding_other_birds$TotalCount)
+# Compute the cumulative percentages (top of each rectangle)
+banding_other_birds$ymax <- cumsum(banding_other_birds$fraction)
+# Compute the bottom of each rectangle
+banding_other_birds$ymin <- c(0, head(banding_other_birds$ymax, -1))
+# Compute label position for species
+banding_other_birds$labelPosition <- (banding_other_birds$ymax + banding_other_birds$ymin) / 2
+
+banding_other_birds$count_label <- paste0(comma(banding_other_birds$TotalCount))
+banding_other_birds$species_label <- banding_other_birds$CommonName
+
+# Controls for donut thickness & label placement
+inner_r <- 2.4
+outer_r <- 3.5
+label_r <- 3.5  # where labeling segment starts 
+x_max   <- 4.8    # extend plot range so labels aren't clipped
+
+# Angle in radians for each mid-slice (0 at 12 o'clock, increasing clockwise)
+banding_other_birds$angle <- 2 * pi * banding_other_birds$labelPosition
+banding_other_birds$hjust_side <- ifelse(sin(banding_other_birds$angle) > 0, 0, 1)
+
+# Total value of banding counts for center text
+#total_val <- scales::comma(sum(banding_donut$TotalCount))
+
+
+# ---- Initialize ggplot ---- 
+ggplot(banding_other_birds, aes(ymax = ymax, ymin = ymin, xmax = outer_r, xmin = inner_r, fill = CommonName)) +
+  geom_rect() +
+  coord_polar(theta = "y", clip = "off") +
+  
+  # Make room so the repelled labels can live outside the ring
+  xlim(c(1, x_max)) +
+  
+  # species text outside of ring 
+  ggrepel::geom_text_repel(
+    data = banding_other_birds,
+    aes(x = label_r, y = labelPosition, label = species_label, color = CommonName, hjust = hjust_side),
+    # text elements 
+    fontface = "bold", 
+    family = "Lato", 
+    size = 5.5,
+    
+    inherit.aes = FALSE, # dont inherit aesthetics from the global ggplot
+    direction = "y", # restricts repelling to the vertical direction
+    nudge_x = 0.35, # pushed labels outward (expands segment)
+    segment.size = 0.7, # segment thickness 
+    segment.color = "grey50", # segment color 
+    min.segment.length = 0, # always draw lines (positive value = short lines omitted)
+    box.padding = 0.25, # how much space around each label box 
+    point.padding = 0.1, # padding around anchor point
+    force = 1.0, # higher values push labels further apart 
+    max.overlaps = Inf, # dont drop labels due to overcrowding
+    seed = 123 # reproducible label placement 
+    ) +
+
+  # count labels within ring
+  geom_text(
+    x = (inner_r + outer_r) / 2, 
+    aes(y = labelPosition, label = count_label),
+    size = 3.5, color = "white", 
+   # fontface = "bold", 
+    family = "Lato"
+  ) +
+  
+  # center text 
+  annotate(
+    geom = "richtext",
+    x = 1, y = 0,
+    label = paste0(
+      "<span style='font-family:Lato; font-weight:700; font-size:25pt; color:#326e85;'>",
+      "Other Birds<br>",
+      "Banded:<br>",
+      "644<br>",
+      "</span>"
+    ),
+
+    # remove the default label box
+    fill = NA, label.color = NA, label.padding = grid::unit(c(0, 0, 0, 0), "pt"),
+    fontface = "bold",
+    hjust = 0.5, 
+    #vjust = 0.5,
+    lineheight = 1.0  # tighten (default is ~1.2)
+  ) +
+
+
+  # custom colors 
+  scale_fill_manual(values = other_birds_pal) +
+  scale_color_manual(values = other_birds_pal) + 
+  
+  # theme elements 
+  theme_void() +
+  theme(
+    # extra room left/right so labels aren't cut off
+    plot.margin = margin(10, 40, 10, 40),  
+    # remove legend 
+    legend.position = "none", 
+    
+    # remove background elements 
+    panel.background = element_rect(fill = NA, color = NA),
+    plot.background  = element_rect(fill = NA, color = NA),
+    legend.background = element_rect(fill = NA, color = NA)
+  ) 
+
+
+```
+
+Plot title: Which Kinds of Birds Have We Banded? 
+Plot subtitle: Count of banded raptors from 1983 to 2025 
 
 ## Plot Archive (not included in poster)
 
