@@ -22,6 +22,7 @@ library(showtext)
 library(here)
 library(janitor)
 library(lubridate)
+library(showtext)
 library(statebins) # for heatmap
 library(treemapify) # for treemap
 library(ggridges) # ridgeline density 
@@ -220,14 +221,14 @@ hw_lolli <- hw_full_dailycount |>
 # Initalize ggplot 
 lollipop <- ggplot(hw_lolli,  aes(x = CommonName, y = Total)) +
   # geoms for lollipop chart 
-  geom_segment(aes(xend = CommonName, yend = 0), linewidth = 1.4,  color= parks_pal["Rosy Copper"]) +
-  geom_point(size = 3, color=parks_pal["Burnt Tangerine"]) + 
+  geom_segment(aes(xend = CommonName, yend = 0), linewidth = 1.6,  color= parks_pal["Rosy Copper"]) +
+  geom_point(size = 3.5, color=parks_pal["Burnt Tangerine"]) + 
   
-  # count labels above points
+  # count labels to right of points
   geom_text(aes(label = comma(Total)), 
             hjust = 0,  # left-align so label grows to the right
             nudge_y = 0.02 * max(hw_lolli$Total, na.rm = TRUE),  # push right
-            size = 5,
+            size = 7,
             family = "Lato",
             fontface = "bold",
             color = parks_pal["Burnt Tangerine"]) +
@@ -252,8 +253,8 @@ lollipop <- ggplot(hw_lolli,  aes(x = CommonName, y = Total)) +
    
     #plot.title = element_text(size = 20, family = "Lato", face = "bold"),
     #plot.subtitle = element_text(size = 15, family = "Lato"),
-    axis.title.x = element_text(family = "Lato", size = 15, margin = margin(t = 10, r = 0, b = 0, l = 0)),
-    axis.text = element_text(family = "Lato", size = 13, color = "black"), 
+    axis.title.x = element_text(family = "Lato", size = 20, margin = margin(t = 10, r = 0, b = 0, l = 0)),
+    axis.text = element_text(family = "Lato", size = 20, color = "black"), 
     
     # remove background elements 
     panel.background = element_rect(fill = NA, color = NA),
@@ -271,7 +272,14 @@ ggsave(
   filename = here::here("plot_exports", "hawkwatch_lollipop_plot.png"),
   plot = lollipop, width = 8, height = 6, units = "in", dpi = 300
 )
-
+# save as svg file
+ggsave(
+  filename = here::here("plot_exports", "hawkwatch_lollipop_plot.svg"),
+  plot = lollipop,
+  device = svg,
+  width = 16.8,
+  height = 8
+)
 ```
 
 Plot title: Which Raptors Are Our Volunteers Seeing? Subtitle: Hawkwatch counts of birds of interest from 2000 to 2025
@@ -376,7 +384,7 @@ density_plot <- ggplot(
     legend.position = "top", 
     legend.direction = "horizontal",
     legend.title = element_blank(),
-    legend.text = element_text(family = "Lato", size = 14),
+    legend.text = element_text(family = "Lato", size = 20),
     
     # remove axis titles 
     axis.title.y = element_blank(),
@@ -385,7 +393,7 @@ density_plot <- ggplot(
     # plot text elements
  #   plot.title = element_text(size = 20, family = "Lato", face = "bold"),
  #   plot.subtitle = element_text(size = 15, family = "Lato"),
-    axis.text = element_text(family = "Lato", size = 15, face = "bold"),
+    axis.text = element_text(family = "Lato", size = 20, face = "bold"),
  
     # remove background elements 
     panel.background = element_rect(fill = NA, color = NA),
@@ -400,9 +408,17 @@ density_plot
 
 ```{r}
 # save as png
-ggsave(
+ ggsave(
   filename = here::here("plot_exports", "hawkwatch_density_plot.png"),
   plot = density_plot, width = 8, height = 8, units = "in", dpi = 300
+)
+# save as svg file
+ggsave(
+  filename = here::here("plot_exports", "hawkwatch_density_plot.svg"),
+  plot = density_plot,
+  device = svg,
+  width = 14,
+  height = 14
 )
 ```
 
@@ -477,7 +493,7 @@ p_waffle <- ggplot(banding_waffle, aes(fill = Sex, values = TotalBanded)) +
     # legend 
     legend.title = element_blank(),
     legend.position = "bottom",
-    legend.text = element_text(family = "Lato", size = 13),
+    legend.text = element_text(family = "Lato", size = 20),
     
     # strip text 
     strip.placement = "outside",
@@ -491,11 +507,11 @@ p_waffle <- ggplot(banding_waffle, aes(fill = Sex, values = TotalBanded)) +
 
     strip.text = element_text(face = "bold", family = "Lato",
                               margin = margin(t = 4, r = 6, b = 8, l = 6),
-                              size = 16), 
+                              size = 20), 
     
  #   plot.title = element_text(size = 20, family = "Lato", face = "bold"),
     # axis text 
-    axis.text = element_text(family = "Lato"), 
+    axis.text = element_text(family = "Lato", size = 14), 
     
     # remove background elements 
     panel.background = element_rect(fill = NA, color = NA),
@@ -513,6 +529,14 @@ p_waffle
 ggsave(
   filename = here::here("plot_exports", "banding_waffle_plot.png"),
   plot = p_waffle, width = 8, height = 8, units = "in", dpi = 300
+)
+# save as svg file
+ggsave(
+  filename = here::here("plot_exports", "banding_waffle_plot.svg"),
+  plot = p_waffle,
+  device = svg,
+  width = 12,
+  height = 16
 )
 ```
 
@@ -572,13 +596,13 @@ banding_pal <- c(
 
 # Define order of species in donut chart (first element will start at 12 o'clock by default)
 banding_order<- c(
-  "Cooper's Hawk", 
-  "Merlin", 
-  "Red-shouldered Hawk",
   "Red-Tailed Hawk", 
+  "Other Birds",
+  "Sharp-shinned Hawk",
+  "Red-shouldered Hawk",
   "American Kestrel",
-  "Sharp-shinned Hawk", 
-  "Other Birds"
+  "Cooper's Hawk", 
+  "Merlin"
 )
 
 # Reorder rows to match desired sequence
@@ -628,7 +652,7 @@ donut_plot <- ggplot(banding_donut, aes(ymax = ymax, ymin = ymin, xmax = outer_r
     # text elements 
     fontface = "bold", 
     family = "Lato", 
-    size = 7,
+    size = 8,
     
     inherit.aes = FALSE, # dont inherit aesthetics from the global ggplot
     direction = "y", # restricts repelling to the vertical direction
@@ -647,7 +671,7 @@ donut_plot <- ggplot(banding_donut, aes(ymax = ymax, ymin = ymin, xmax = outer_r
   geom_text(
     x = (inner_r + outer_r) / 2, 
     aes(y = labelPosition, label = count_label),
-    size = 4.5, color = "white", fontface = "bold", family = "Lato"
+    size = 5.5, color = "white", fontface = "bold", family = "Lato"
   ) +
   
   # center text 
@@ -697,6 +721,15 @@ donut_plot
 ggsave(
   filename = here::here("plot_exports", "banding_donut_plot.png"),
   plot = donut_plot, width = 8, height = 6, units = "in", dpi = 300
+)
+
+# save as svg file
+ggsave(
+  filename = here::here("plot_exports", "banding_donut_plot.svg"),
+  plot = donut_plot,
+  device = svg,
+  width = 16,
+  height = 12
 )
 ```
 
@@ -776,7 +809,7 @@ donut_plot2 <- ggplot(banding_other_birds, aes(ymax = ymax, ymin = ymin, xmax = 
     # text elements 
     fontface = "bold", 
     family = "Lato", 
-    size = 6,
+    size = 8,
     
     inherit.aes = FALSE, # dont inherit aesthetics from the global ggplot
     direction = "y", # restricts repelling to the vertical direction
@@ -795,7 +828,7 @@ donut_plot2 <- ggplot(banding_other_birds, aes(ymax = ymax, ymin = ymin, xmax = 
   geom_text(
     x = (inner_r + outer_r) / 2, 
     aes(y = labelPosition, label = count_label),
-    size = 3.5, color = "white", 
+    size = 4.5, color = "white", 
     fontface = "bold", 
     family = "Lato"
   ) +
@@ -847,6 +880,15 @@ donut_plot2
 ggsave(
   filename = here::here("plot_exports", "banding_donut_plot2.png"),
   plot = donut_plot2, width = 8, height = 6, units = "in", dpi = 300
+)
+
+# save as svg file
+ggsave(
+  filename = here::here("plot_exports", "banding_donut_plot2.svg"),
+  plot = donut_plot2,
+  device = svg,
+  width = 16,
+  height = 12
 )
 ```
 
