@@ -136,11 +136,11 @@ banding_clean <- banding_raw |>
   rename("SpeciesCode" = "Species") |> 
   # create new column CommonName
   mutate(CommonName = case_when(SpeciesCode == "COHA" ~ "Cooper's Hawk",
-                                SpeciesCode == "RTHA" ~ "Red-Tailed Hawk",
+                                SpeciesCode == "RTHA" ~ "Red-tailed Hawk",
                                 SpeciesCode == "AMKE" ~ "American Kestrel",
                                 SpeciesCode == "SSHA" ~ "Sharp-shinned Hawk",
                                 SpeciesCode == "NOHA" ~ "Northern Harrier",
-                                SpeciesCode == "NOGO" ~ "Northern Goshawk",
+                                SpeciesCode == "NOGO" ~ "American Goshawk",
                                 SpeciesCode == "GHOW" ~ "Great Horned Owl",
                                 SpeciesCode == "BWHA" ~ "Broad-winged Hawk",
                                 SpeciesCode == "RSHA" ~ "Red-shouldered Hawk",
@@ -169,7 +169,9 @@ banding_clean <- banding_raw |>
                          is.na(Sex) ~ "Unknown",
                          TRUE ~ "Unknown")) |> 
   # remove rows where species code = NA 
-  filter(!is.na(SpeciesCode))
+  filter(!is.na(SpeciesCode)) |> 
+  # filter out sensitive species 
+  filter(!SpeciesCode %in% c("GHOW", "EUKE", "TUVU", "GOEA", "OSPR", "LEOW"))
 
 
 ```
@@ -450,9 +452,9 @@ banding_waffle <- banding_clean |>
   group_by(CommonName, Sex) |> 
   summarise(TotalBanded = n(), .groups = "drop") |> 
   # filter to big 4 species 
-  filter(CommonName %in% c("Sharp-shinned Hawk", "American Kestrel", "Red-Tailed Hawk", "Cooper's Hawk")) |> 
+  filter(CommonName %in% c("Sharp-shinned Hawk", "American Kestrel", "Red-tailed Hawk", "Cooper's Hawk")) |> 
   # order by smallest to largest 
-  mutate(CommonName = forcats::fct_relevel(CommonName, c("American Kestrel", "Red-Tailed Hawk", "Sharp-shinned Hawk", "Cooper's Hawk")))
+  mutate(CommonName = forcats::fct_relevel(CommonName, c("American Kestrel", "Red-tailed Hawk", "Sharp-shinned Hawk", "Cooper's Hawk")))
 ```
 
 ```{r, fig.width=8, fig.height=8}
@@ -588,7 +590,7 @@ banding_other_birds <- banding_clean |>
 banding_pal <- c(
                "Cooper's Hawk" = "#8b913b",
                "Merlin" = "#4d9cbc",
-               "Red-Tailed Hawk" = "#dd5e4c",
+               "Red-tailed Hawk" = "#dd5e4c",
                "American Kestrel" = "#6bbaa9",
                "Red-shouldered Hawk" = "#adb449",
                "Sharp-shinned Hawk" = "#d79d1d",
@@ -597,11 +599,11 @@ banding_pal <- c(
 # Define order of species in donut chart (first element will start at 12 o'clock by default)
 banding_order<- c(
   "Red-Tailed Hawk", 
+  "Red-shouldered Hawk",
+  "Cooper's Hawk", 
+   "American Kestrel",
   "Other Birds",
   "Sharp-shinned Hawk",
-  "Red-shouldered Hawk",
-  "American Kestrel",
-  "Cooper's Hawk", 
   "Merlin"
 )
 
@@ -744,20 +746,13 @@ ggsave(
 # Define order of species in donut chart (first element will start at 12 o'clock by default)
 banding_other_order<- c(
   "Peregrine Falcon", 
-  "Eurasian Kestrel",
   "Prairie Falcon", 
   "Ferruginous Hawk",
-  "Turkey Vulture",
-  "Golden Eagle", 
   "Broad-winged Hawk", 
-  "Northern Goshawk", 
-  "Osprey", 
-  "Long-eared Owl", 
+  "American Goshawk", 
   "Rough-legged Hawk", 
   "Northern Harrier",
-  "Great Horned Owl", 
   "Swainson’s Hawk"
-  
 )
 
 # Reorder rows to match desired sequence
@@ -766,7 +761,7 @@ banding_other_birds <- banding_other_birds |>
   arrange(CommonName)
 
 # color palette 
-other_birds_pal <- c("#4E9BBC","#0353a4","#023e7d","#002855","#001845","#001233","#33415c","#4E9BBC","#0353a4","#023e7d","#002855","#001845","#001233","#33415c")
+other_birds_pal <- c("#4E9BBC","#0353a4","#023e7d","#002855", "#4E9BBC","#0353a4","#023e7d","#002855")
 
 # Compute percentages
 banding_other_birds$fraction <- banding_other_birds$TotalCount / sum(banding_other_birds$TotalCount)
@@ -839,7 +834,7 @@ donut_plot2 <- ggplot(banding_other_birds, aes(ymax = ymax, ymin = ymin, xmax = 
     x = 1, y = 0,
     label = paste0(
       "<span style='font-family:Lato; font-weight:700; font-size:28pt; color:#326e85;'>",
-      "644<br>",
+      "613<br>",
       "Other Birds<br>",
       "Banded<br>",
       "</span>"
